@@ -1,6 +1,7 @@
 <?php
 
-use App\Models\User;
+use App\Core\Iam\Infrastructure\Persistence\User;
+use App\Platform\Infrastructure\Persistence\PlatformAdmin;
 
 return [
 
@@ -42,6 +43,19 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Tokens de usuarios de un restaurante. El provider hace que Sanctum
+        // rechace tokens de un administrador de plataforma, y viceversa.
+        'sanctum' => [
+            'driver' => 'sanctum',
+            'provider' => 'users',
+        ],
+
+        // Tokens del backoffice del dueno de la plataforma (admin.{dominio}).
+        'plataforma' => [
+            'driver' => 'sanctum',
+            'provider' => 'administradores',
+        ],
     ],
 
     /*
@@ -65,6 +79,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'administradores' => [
+            'driver' => 'eloquent',
+            'model' => PlatformAdmin::class,
         ],
 
         // 'users' => [

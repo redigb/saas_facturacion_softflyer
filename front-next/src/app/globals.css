@@ -1,18 +1,19 @@
 @import "tailwindcss";
 
-:root {
-  --background: #020617;
-  --foreground: #f1f5f9;
-}
+/* Identidad Softflyer */
+@theme {
+  --color-celeste: #18b4fa;
+  --color-azul: #0c5ea7;
+  --color-amarillo: #fccd0b;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-azul-oscuro: #083f71;
+  --color-tinta: #0b2a4a;
+  --color-niebla: #f3f8fc;
+
+  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-niebla);
+  color: var(--color-tinta);
 }

@@ -11,4 +11,15 @@ Route::prefix('v1')->group(function (): void {
             ],
         ]);
     });
+
+    // Cada contexto expone sus rutas en Presentation/routes.php.
+    $routeFiles = array_merge(
+        glob(app_path('Core/*/Presentation/routes.php')) ?: [],
+        glob(app_path('Modules/*/Presentation/routes.php')) ?: [],
+        [app_path('Platform/Presentation/routes.php')],
+    );
+
+    foreach ($routeFiles as $routeFile) {
+        require $routeFile;
+    }
 });

@@ -97,6 +97,25 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Laravel escribe fechas en UTC sin offset: la sesion debe estar en UTC (Doc. 07 §7).
+            'timezone' => 'UTC',
+        ],
+
+        // Rol dueño del esquema: solo para migraciones y seeders, nunca para la API.
+        'pgsql_owner' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_OWNER_USERNAME', 'softflyer_owner'),
+            'password' => env('DB_OWNER_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Laravel escribe fechas en UTC sin offset: la sesion debe estar en UTC (Doc. 07 §7).
+            'timezone' => 'UTC',
         ],
 
         'sqlsrv' => [
