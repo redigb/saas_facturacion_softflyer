@@ -38,7 +38,8 @@ final class GetMenu
                 'nombre' => $category->nombre,
                 'color' => $category->color,
                 'orden' => $category->orden,
-                'producto_ids' => $products->where('categoria_id', $category->id)->modelKeys(),
+                // values(): el filtro conserva los índices y JSON lo convertiría en objeto.
+                'producto_ids' => $products->where('categoria_id', $category->id)->values()->modelKeys(),
             ])->all(),
             'productos' => $products->map(fn (Product $product) => [
                 'id' => $product->id,

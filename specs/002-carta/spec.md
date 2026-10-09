@@ -1,7 +1,7 @@
 # 002 — Carta del restaurante
 
-**Estado:** Abierta
-**Backend:** ✅ · **Frontend:** 🟡
+**Estado:** ✅ Cerrada (2026-10-08)
+**Backend:** ✅ · **Frontend:** ✅
 **Hito:** H0 (Doc. 09 §2)
 **Documentos:** Doc. 08 §5 (carta), Doc. 06 §5 (permisos `productos.*`), Doc. 07 §3-4 (formato y paginación)
 

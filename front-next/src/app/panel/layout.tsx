@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { logout } from "@/app/panel/actions";
+import { firstAllowedHref } from "@/app/panel/navigation";
+import { SwitchUserButton } from "@/app/panel/switch-user";
 import { PanelShell } from "@/app/panel/panel-shell";
 import { PanelProviders } from "@/app/panel/providers";
+import { RealtimeProvider } from "@/app/panel/realtime";
 import { AuthShell } from "@/components/auth-shell";
 import { SalesButton } from "@/components/sales-button";
 import { apiFetch, type Me } from "@/lib/api";
@@ -34,8 +37,8 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     );
   }
 
-  // Por ahora el panel es solo del administrador; mozos y cocina tendrán su propia vista.
-  if (!me.permisos.includes("panel.ver")) {
+  // Cada rol entra a lo que puede usar (spec 004). Mozo y Cocinero tienen pantalla desde H1.
+  if (firstAllowedHref(me.permisos) === null) {
     return (
       <AuthShell>
         <h1 className="text-3xl font-bold text-tinta">Tu vista llega pronto</h1>
@@ -43,6 +46,9 @@ export default async function PanelLayout({ children }: { children: React.ReactN
           Hola, {me.usuario.nombre}. Tu rol ({me.roles.join(", ") || "sin rol"}) todavía no tiene una pantalla
           propia. Pídele al administrador del restaurante que te avise cuando esté lista.
         </p>
+        <div className="mt-6 flex justify-center rounded-xl border-2 border-slate-200">
+          <SwitchUserButton className="w-full justify-center" />
+        </div>
         <LogoutButton />
       </AuthShell>
     );
@@ -50,7 +56,9 @@ export default async function PanelLayout({ children }: { children: React.ReactN
 
   return (
     <PanelProviders>
-      <PanelShell me={me}>{children}</PanelShell>
+      <RealtimeProvider branches={me.sucursales ?? []} userId={me.usuario.id} takesOrders={me.permisos.includes("restaurante.pedidos.crear")}>
+        <PanelShell me={me}>{children}</PanelShell>
+      </RealtimeProvider>
     </PanelProviders>
   );
 }

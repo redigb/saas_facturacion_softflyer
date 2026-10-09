@@ -3,6 +3,8 @@
 namespace App\Core\Iam\Infrastructure\Persistence;
 
 use App\Core\Tenancy\Infrastructure\Persistence\BelongsToTenant;
+use App\Core\Tenancy\Infrastructure\Persistence\Branch;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -67,5 +69,27 @@ class User extends Authenticatable
     public function hasPermission(string $code): bool
     {
         return in_array($code, $this->permissionCodes(), true);
+    }
+
+    /**
+     * Sucursales activas donde trabaja: todas si tiene un rol global (sucursal_id nulo),
+     * si no, las de sus roles (Doc. 06 §6, Doc. 08 §4).
+     *
+     * @return Collection<int, Branch>
+     */
+    public function branches(): Collection
+    {
+        $scopes = DB::table('rol_usuario')->where('usuario_id', $this->getKey())->pluck('sucursal_id');
+
+        return Branch::where('es_activa', true)
+            ->when(! $scopes->contains(null), fn ($query) => $query->whereIn('id', $scopes->filter()))
+            ->orderByDesc('es_principal')
+            ->orderBy('id')
+            ->get();
+    }
+
+    public function worksAt(int $branchId): bool
+    {
+        return $this->branches()->contains('id', $branchId);
     }
 }

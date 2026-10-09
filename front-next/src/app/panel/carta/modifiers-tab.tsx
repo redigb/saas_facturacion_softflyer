@@ -9,6 +9,7 @@ import { errorMessage, useDeleteModifierGroup, useModifierGroups, useSaveModifie
 import { applyApiErrors, dangerButton, Drawer, Field, inputClass, primaryButton, secondaryButton, Skeleton } from "@/app/panel/carta/ui";
 import { useToast } from "@/app/panel/providers";
 import { Icon } from "@/components/icons";
+import { Badge, Button, EmptyState } from "@/components/ui";
 import { formatPrice, modifierGroupFormSchema, type ModifierGroup, type ModifierGroupFormValues } from "@/lib/schemas/carta";
 
 type DrawerState = { open: false } | { open: true; group?: ModifierGroup };
@@ -22,26 +23,30 @@ export function ModifiersTab() {
   return (
     <div className="max-w-3xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-xl text-slate-600">
-          Opciones que el mozo pregunta al tomar el pedido. Ej. “Término de la carne” (elige 1) o “Extras” (hasta 3, con precio).
+        <p className="max-w-xl text-sm text-slate-500">
+          Opciones que el mozo pregunta al tomar el pedido (ej. “Término de la carne” con 1 elección obligatoria o “Salsas extras” con precio adicional).
         </p>
-        {can.create && (
-          <button type="button" onClick={() => setDrawer({ open: true })} className={primaryButton}>
-            <Icon name="mas" className="h-4 w-4" />
-            Nuevo grupo
-          </button>
-        )}
+        {can.create ? (
+          <Button onClick={() => setDrawer({ open: true })} variant="primary">
+            <Icon name="mas" className="h-4.5 w-4.5" />
+            <span>Nuevo grupo</span>
+          </Button>
+        ) : null}
       </div>
 
-      <div className="mt-5">
+      <div className="mt-6">
         {groups.isPending ? (
-          <Skeleton className="h-40" />
+          <Skeleton className="h-44 rounded-3xl" />
         ) : groups.data?.length === 0 ? (
-          <p className="rounded-2xl border-2 border-dashed border-slate-200 bg-white px-6 py-8 text-center text-slate-500">
-            Todavía no hay grupos de opciones.
-          </p>
+          <EmptyState
+            icon="carta"
+            title="Todavía no hay grupos de opciones"
+            description="Crea opciones como guarniciones, términos de cocción o adiciones para tus platos."
+            actionLabel={can.create ? "Crear primer grupo" : undefined}
+            onAction={can.create ? () => setDrawer({ open: true }) : undefined}
+          />
         ) : (
-          <ul className="grid gap-3.5 sm:grid-cols-2">
+          <ul className="grid gap-4 sm:grid-cols-2">
             {groups.data?.map((group) => {
               const isMandatory = group.seleccion_minima > 0;
               return (
@@ -50,35 +55,33 @@ export function ModifiersTab() {
                     type="button"
                     disabled={!can.edit}
                     onClick={() => setDrawer({ open: true, group })}
-                    className="h-full w-full rounded-2xl border border-slate-200/80 bg-white p-4.5 text-left shadow-2xs transition-all enabled:hover:border-azul/50 enabled:hover:shadow-xs disabled:cursor-default"
+                    className="flex h-full w-full flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 text-left shadow-2xs transition-all enabled:hover:border-azul/50 enabled:hover:shadow-md disabled:cursor-default"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="block font-bold text-tinta text-[15px]">{group.nombre}</span>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                          isMandatory ? "bg-amber-100/90 text-amber-800" : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {selectionLabel(group)}
-                      </span>
-                    </div>
+                    <div>
+                      <div className="flex items-start justify-between gap-2.5">
+                        <span className="block truncate text-lg font-bold text-tinta">{group.nombre}</span>
+                        <Badge variant={isMandatory ? "warning" : "neutral"} className="shrink-0">
+                          {selectionLabel(group)}
+                        </Badge>
+                      </div>
 
-                    <div className="mt-3.5 flex flex-wrap gap-1.5">
-                      {group.modificadores.map((modifier) => (
-                        <span
-                          key={modifier.id}
-                          className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                            modifier.es_activo
-                              ? "bg-slate-100/80 text-tinta"
-                              : "bg-slate-100/40 text-slate-400 line-through"
-                          }`}
-                        >
-                          <span>{modifier.nombre}</span>
-                          {Number(modifier.precio_adicional) > 0 && (
-                            <span className="font-bold text-azul tabular-nums">+{formatPrice(modifier.precio_adicional)}</span>
-                          )}
-                        </span>
-                      ))}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {group.modificadores.map((modifier) => (
+                          <span
+                            key={modifier.id}
+                            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold ${
+                              modifier.es_activo
+                                ? "bg-slate-100/90 text-tinta"
+                                : "bg-slate-100/40 text-slate-400 line-through"
+                            }`}
+                          >
+                            <span>{modifier.nombre}</span>
+                            {Number(modifier.precio_adicional) > 0 && (
+                              <span className="font-bold text-azul tabular-nums">+{formatPrice(modifier.precio_adicional)}</span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </button>
                 </li>

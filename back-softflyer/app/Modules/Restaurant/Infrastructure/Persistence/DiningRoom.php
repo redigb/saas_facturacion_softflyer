@@ -13,9 +13,20 @@ class DiningRoom extends BaseModel
 
     protected $table = 'salones';
 
+    protected function casts(): array
+    {
+        return ['ancho' => 'integer', 'alto' => 'integer', 'orden' => 'integer', 'version' => 'integer', 'es_activo' => 'boolean'];
+    }
+
+    /** Todas las mesas, tambien las retiradas del plano (tienen historial). */
     public function tables(): HasMany
     {
         return $this->hasMany(DiningTable::class, 'salon_id');
+    }
+
+    public function activeTables(): HasMany
+    {
+        return $this->tables()->where('es_activa', true);
     }
 
     public function elements(): HasMany

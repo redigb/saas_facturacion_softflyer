@@ -9,6 +9,7 @@ import { errorMessage, useDeleteProduct, useSaveProduct } from "@/app/panel/cart
 import { applyApiErrors, dangerButton, Drawer, Field, inputClass, primaryButton, secondaryButton } from "@/app/panel/carta/ui";
 import { useToast } from "@/app/panel/providers";
 import { Icon } from "@/components/icons";
+import { CustomSelect } from "@/components/ui";
 import {
   productFormSchema,
   type Category,
@@ -59,6 +60,7 @@ export function ProductDrawer({ open, product, defaultCategoryId, categories, st
 
   const categoryId = useWatch({ control, name: "categoria_id" });
   const selectedGroups = useWatch({ control, name: "modificador_grupo_ids" });
+  const estacionPreparacionId = useWatch({ control, name: "estacion_preparacion_id" });
   const categoryStation = categories.find((category) => String(category.id) === categoryId)?.estacion_preparacion_id;
   const categoryStationName = stations.find((station) => station.id === categoryStation)?.nombre;
 
@@ -182,14 +184,18 @@ export function ProductDrawer({ open, product, defaultCategoryId, categories, st
 
         <Field label="Categoría">
           {(id) => (
-            <select id={id} {...register("categoria_id")} className={inputClass}>
-              <option value="">Sin categoría</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.nombre}
-                </option>
-              ))}
-            </select>
+            <CustomSelect
+              id={id}
+              value={categoryId ?? ""}
+              onChange={(val) => setValue("categoria_id", val, { shouldDirty: true, shouldValidate: true })}
+              options={[
+                { value: "", label: "Sin categoría" },
+                ...categories.map((category) => ({
+                  value: String(category.id),
+                  label: category.nombre,
+                })),
+              ]}
+            />
           )}
         </Field>
 
@@ -232,14 +238,20 @@ export function ProductDrawer({ open, product, defaultCategoryId, categories, st
               hint={categoryStationName ? `Si no eliges, va a ${categoryStationName} (la de su categoría).` : "Si no eliges, usa la de su categoría."}
             >
               {(id, describedBy) => (
-                <select id={id} {...register("estacion_preparacion_id")} aria-describedby={describedBy} className={inputClass}>
-                  <option value="">La de su categoría</option>
-                  {stations.map((station) => (
-                    <option key={station.id} value={station.id}>
-                      {station.nombre}
-                    </option>
-                  ))}
-                </select>
+                <CustomSelect
+                  id={id}
+                  aria-describedby={describedBy}
+                  value={estacionPreparacionId ?? ""}
+                  onChange={(val) => setValue("estacion_preparacion_id", val, { shouldDirty: true, shouldValidate: true })}
+                  options={[
+                    { value: "", label: "La de su categoría" },
+                    ...stations.map((station) => ({
+                      value: String(station.id),
+                      label: station.nombre,
+                      icon: "cocina" as const,
+                    })),
+                  ]}
+                />
               )}
             </Field>
 

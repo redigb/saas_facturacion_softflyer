@@ -12,7 +12,14 @@ import re
 import sys
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent / "front-next" / "src"
+current = Path(__file__).resolve()
+ROOT_DIR = None
+for p in current.parents:
+    if (p / "src").is_dir():
+        ROOT_DIR = p / "src"
+        break
+if not ROOT_DIR:
+    ROOT_DIR = current.parents[3] / "front-next" / "src"
 
 ALLOWED_OFFICIAL_COLORS = [
     "azul", "celeste", "amarillo", "azul-oscuro", "tinta", "niebla",

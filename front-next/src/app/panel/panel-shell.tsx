@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-import { NAVIGATION } from "@/app/panel/navigation";
+import { visibleNavigation } from "@/app/panel/navigation";
+import { RealtimeIndicator } from "@/app/panel/realtime";
+import { SwitchUserButton } from "@/app/panel/switch-user";
 import { logout } from "@/app/panel/actions";
 import { Icon } from "@/components/icons";
 import { Logo } from "@/components/logo";
@@ -37,9 +39,8 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200/90 bg-white transition-all duration-300 ease-in-out lg:translate-x-0 ${
-          open ? "translate-x-0" : "-translate-x-full"
-        } ${collapsed ? "w-20" : "w-68"}`}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200/90 bg-white transition-all duration-300 ease-in-out lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"
+          } ${collapsed ? "w-20" : "w-68"}`}
       >
         {/* Botón flotante en el borde divisor (solo en desktop) */}
         <button
@@ -51,9 +52,8 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
         >
           <Icon
             name="abajo"
-            className={`h-4 w-4 transition-transform duration-300 ${
-              collapsed ? "-rotate-90 text-azul" : "rotate-90 text-slate-500"
-            }`}
+            className={`h-4 w-4 transition-transform duration-300 ${collapsed ? "-rotate-90 text-azul" : "rotate-90 text-slate-500"
+              }`}
           />
         </button>
 
@@ -71,7 +71,7 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
           </button>
         </div>
 
-        <Sidebar collapsed={collapsed} onNavigate={() => setOpen(false)} />
+        <Sidebar permisos={me.permisos} collapsed={collapsed} onNavigate={() => setOpen(false)} />
 
         <div className={`m-3 rounded-2xl bg-slate-50 border border-slate-100 transition-all ${collapsed ? "p-2 text-center" : "p-3.5"}`}>
           {!collapsed && (
@@ -82,11 +82,10 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
           )}
           <span
             title={me.inquilino.nombre}
-            className={`inline-block rounded-full font-bold tracking-wide uppercase transition-all ${
-              collapsed
+            className={`inline-block rounded-full font-bold tracking-wide uppercase transition-all ${collapsed
                 ? "h-4 w-4 rounded-full mt-0.5"
                 : "mt-1.5 px-2.5 py-0.5 text-[10px]"
-            } ${MODE_BADGE[mode].className}`}
+              } ${MODE_BADGE[mode].className}`}
           >
             {collapsed ? "" : MODE_BADGE[mode].label}
           </span>
@@ -139,6 +138,8 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-azul text-sm font-bold text-white shadow-2xs">
               {initials(me.usuario.nombre)}
             </span>
+            <RealtimeIndicator />
+            <SwitchUserButton />
             <form action={logout}>
               <button
                 type="submit"
@@ -152,18 +153,18 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
           </div>
         </header>
 
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-8">{children}</main>
+        <main className="mx-auto max-w-[1600px] px-3 py-6 sm:px-6">{children}</main>
       </div>
     </div>
   );
 }
 
-function Sidebar({ collapsed, onNavigate }: { collapsed: boolean; onNavigate: () => void }) {
+function Sidebar({ permisos, collapsed, onNavigate }: { permisos: string[]; collapsed: boolean; onNavigate: () => void }) {
   const pathname = usePathname();
 
   return (
     <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2" aria-label="Secciones del panel">
-      {NAVIGATION.map((section) => (
+      {visibleNavigation(permisos).map((section) => (
         <div key={section.title}>
           {!collapsed ? (
             <p className="px-3 pb-2 text-[10px] font-bold tracking-widest text-slate-400 uppercase">
@@ -175,9 +176,8 @@ function Sidebar({ collapsed, onNavigate }: { collapsed: boolean; onNavigate: ()
           <ul className="space-y-1">
             {section.items.map((item) => {
               const active = item.href === pathname;
-              const base = `flex w-full items-center rounded-2xl text-sm font-semibold transition-all ${
-                collapsed ? "h-12 w-12 mx-auto justify-center active:scale-[0.96]" : "h-11 gap-3.5 px-3.5 active:scale-[0.99]"
-              }`;
+              const base = `flex w-full items-center rounded-2xl text-sm font-semibold transition-all ${collapsed ? "h-12 w-12 mx-auto justify-center active:scale-[0.96]" : "h-11 gap-3.5 px-3.5 active:scale-[0.99]"
+                }`;
 
               return (
                 <li key={item.label}>
@@ -187,11 +187,10 @@ function Sidebar({ collapsed, onNavigate }: { collapsed: boolean; onNavigate: ()
                       onClick={onNavigate}
                       title={collapsed ? item.label : undefined}
                       aria-current={active ? "page" : undefined}
-                      className={`${base} ${
-                        active
+                      className={`${base} ${active
                           ? "bg-azul text-white shadow-xs ring-2 ring-azul/20"
                           : "text-tinta hover:bg-slate-100/80 hover:text-azul"
-                      }`}
+                        }`}
                     >
                       <Icon name={item.icon} className={collapsed ? "h-6 w-6" : "h-5 w-5"} />
                       {!collapsed && <span>{item.label}</span>}

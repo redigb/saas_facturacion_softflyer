@@ -41,7 +41,13 @@ API, desde `back-softflyer`:
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
-Web, desde `front-next` (copia `.env.example` a `.env.local`):
+Tiempo real (WebSockets), desde `back-softflyer`, en otra terminal. La configuración completa, la verificación y la puesta en producción están en [`back-softflyer/README.md`](back-softflyer/README.md#tiempo-real-websockets-con-reverb):
+
+```powershell
+php artisan reverb:start
+```
+
+Web, desde `front-next` (copia `.env.example` a `.env.local`; `NEXT_PUBLIC_REVERB_KEY` = `REVERB_APP_KEY` del backend):
 
 ```powershell
 npm run dev

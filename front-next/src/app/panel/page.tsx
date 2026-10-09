@@ -1,11 +1,19 @@
 import { DemoDashboard, Greeting, PaidDashboard, type DashboardSummary } from "@/app/panel/dashboard";
+import { redirect } from "next/navigation";
+
+import { firstAllowedHref } from "@/app/panel/navigation";
 import { apiFetch, type Me } from "@/lib/api";
 
 export default async function PanelPage() {
-  const [me, summary] = await Promise.all([
-    apiFetch<Me>("auth/yo"),
-    apiFetch<DashboardSummary>("panel/resumen"),
-  ]);
+  const me = await apiFetch<Me>("auth/yo");
+
+  // Inicio es del administrador; los demás roles van directo a su primera sección (spec 004).
+  if (me.ok && !me.data.permisos.includes("panel.ver")) {
+    const href = firstAllowedHref(me.data.permisos);
+    if (href && href !== "/panel") redirect(href);
+  }
+
+  const summary = await apiFetch<DashboardSummary>("panel/resumen");
 
   if (!me.ok || !summary.ok) {
     return (

@@ -25,6 +25,7 @@ export type Me = {
   inquilino: Tenant;
   roles: string[];
   permisos: string[];
+  sucursales: { id: number; nombre: string }[];
 };
 
 export type ApiError = {

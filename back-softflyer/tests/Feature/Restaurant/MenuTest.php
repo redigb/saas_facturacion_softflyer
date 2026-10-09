@@ -210,6 +210,23 @@ class MenuTest extends DatabaseTestCase
             ->assertJsonPath('data.productos.0.precio_venta', '45.00');
     }
 
+    public function test_menu_product_ids_are_always_json_arrays(): void
+    {
+        // Regresión: con varias categorías, los ids de la segunda salían como objeto JSON
+        // ({"2": 17}) y la pantalla del mozo no podía leer la carta.
+        $fondos = $this->api('POST', 'categorias', ['nombre' => 'Fondos'])->json('data.id');
+        $bebidas = $this->api('POST', 'categorias', ['nombre' => 'Bebidas'])->json('data.id');
+        $lomo = $this->api('POST', 'productos', ['nombre' => 'Lomo', 'tipo' => 'PLATO', 'precio_venta' => 42, 'categoria_id' => $fondos])->json('data.id');
+        $aji = $this->api('POST', 'productos', ['nombre' => 'Ají de gallina', 'tipo' => 'PLATO', 'precio_venta' => 34, 'categoria_id' => $fondos])->json('data.id');
+        $chicha = $this->api('POST', 'productos', ['nombre' => 'Chicha', 'tipo' => 'BEBIDA', 'precio_venta' => 10, 'categoria_id' => $bebidas])->json('data.id');
+
+        $raw = $this->api('GET', 'carta')->assertOk()->getContent();
+
+        $this->assertStringContainsString('"producto_ids":['.$aji.','.$lomo.']', $raw);
+        $this->assertStringContainsString('"producto_ids":['.$chicha.']', $raw);
+        $this->assertStringNotContainsString('"producto_ids":{', $raw);
+    }
+
     public function test_products_are_paginated_and_searchable(): void
     {
         foreach (['Ceviche', 'Causa', 'Lomo saltado'] as $name) {

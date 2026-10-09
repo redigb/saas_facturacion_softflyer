@@ -35,6 +35,11 @@ Para crear una nueva, copia [`_plantilla/`](_plantilla/) con el siguiente númer
 |---|---|---|---|---|
 | [000-base-lotes-1-5](000-base-lotes-1-5/spec.md) | — | ✅ | ✅ | Cerrada |
 | [001-idempotencia](001-idempotencia/spec.md) | H0 | ✅ | ➖ | Cerrada |
-| [002-carta](002-carta/spec.md) | H0 | ✅ | 🟡 | **Abierta** |
+| [002-carta](002-carta/spec.md) | H0 | ✅ | ✅ | Cerrada |
+| [003-plano](003-plano/spec.md) | H0 | ✅ | ✅ | Cerrada |
+| [004-equipo](004-equipo/spec.md) | H0 | ✅ | ✅ | Cerrada |
+| [005-tiempo-real](005-tiempo-real/spec.md) | H0 | ✅ | ✅ | Cerrada |
+| [006-pedidos-mozo](006-pedidos-mozo/spec.md) | H1 | ✅ | ✅ | Cerrada |
+| [007-cocina-kds](007-cocina-kds/spec.md) | H1 | ✅ | ✅ | Cerrada |
 
-Siguientes (sin abrir todavía): editor de plano → Reverb. Luego H1: pedidos en tiempo real.
+Siguientes (sin abrir todavía): H2, caja y cobro.

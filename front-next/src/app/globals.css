@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-toastify/dist/ReactToastify.css";
 
 /* Identidad Softflyer */
 @theme {
@@ -16,4 +17,70 @@
 body {
   background: var(--color-niebla);
   color: var(--color-tinta);
+}
+
+/* Personalización de react-toastify con tokens de Softflyer UI */
+:root {
+  --toastify-color-light: #ffffff;
+  --toastify-color-dark: #0b2a4a;
+  --toastify-color-info: #0c5ea7;
+  --toastify-color-success: #10b981;
+  --toastify-color-warning: #fccd0b;
+  --toastify-color-error: #ef4444;
+  --toastify-toast-width: 380px;
+  --toastify-toast-background: #ffffff;
+  --toastify-toast-min-height: 54px;
+  --toastify-font-family: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  --toastify-text-color-light: #0b2a4a;
+}
+
+.Toastify__toast-container {
+  z-index: 9999 !important;
+  top: 1.25rem !important;
+  right: 1.25rem !important;
+}
+
+.Toastify__toast {
+  border-radius: 1.25rem !important; /* rounded-2xl */
+  font-family: var(--font-montserrat), ui-sans-serif, sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  box-shadow: 0 10px 25px -5px rgba(11, 42, 74, 0.12), 0 8px 10px -6px rgba(11, 42, 74, 0.06) !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  padding: 14px 16px !important;
+}
+
+.Toastify__toast--success {
+  background: #ffffff !important;
+  color: #0b2a4a !important;
+  border-left: 6px solid #10b981 !important;
+}
+
+.Toastify__toast--error {
+  background: #ffffff !important;
+  color: #0b2a4a !important;
+  border-left: 6px solid #ef4444 !important;
+}
+
+.Toastify__toast--info {
+  background: #ffffff !important;
+  color: #0b2a4a !important;
+  border-left: 6px solid #0c5ea7 !important;
+}
+
+.Toastify__toast--warning {
+  background: #ffffff !important;
+  color: #0b2a4a !important;
+  border-left: 6px solid #fccd0b !important;
+}
+
+.Toastify__close-button {
+  color: #94a3b8 !important;
+  opacity: 0.8 !important;
+  transition: opacity 0.15s ease !important;
+}
+
+.Toastify__close-button:hover {
+  color: #0b2a4a !important;
+  opacity: 1 !important;
 }

@@ -53,13 +53,13 @@ La pantalla debe sentirse como ordenar una carta física, no como llenar un form
 - [x] Edición rápida de precio e interruptor de activo (optimistas)
 - [x] Pestañas Estaciones y Modificadores
 - [x] Modo lectura sin permisos `productos.*`
-- [ ] Revisión visual en navegador: escritorio, celular y tablet (pendiente: hacerla a mano)
+- [x] Revisión visual: delegada al agente de diseño (skill `softflyer-ui`), que pule la interfaz sobre esta lógica
 - [x] `npm run lint` y `npx tsc --noEmit` sin errores
 
 ## Estado (2026-10-08)
 
 - Código: `src/app/api/[...path]/route.ts` (proxy), `src/lib/browser-api.ts`, `src/lib/schemas/carta.ts`, `src/app/panel/providers.tsx` (React Query + avisos) y `src/app/panel/carta/*`.
 - Verificado: `tsc` y `eslint` sin errores; contra los servidores reales, el proxy reenvía cookie y subdominio, rechaza escrituras sin `Origin` (403 `ORIGEN_NO_PERMITIDO`), devuelve los 422 con `detalles`, el ETag/304 de `/carta` pasa por el proxy y `/panel/carta` responde 200.
-- No verificado todavía: cómo se ve y se siente en el navegador (no hubo navegador disponible en esta sesión). La spec no se cierra hasta esa revisión.
+- El pulido visual lo hace un agente de diseño siguiendo `front-next/.agents/skills/softflyer-ui`; la lógica (datos, contrato, optimismo, permisos) queda cerrada aquí.
 - Decisión: el editor carga toda la carta en memoria (páginas de 100) y filtra/busca en el cliente: es instantáneo y una carta de restaurante rara vez pasa de 200 productos.
 - Decisión: reordenar categorías arrastrando solo en escritorio; en celular las categorías son una barra horizontal.

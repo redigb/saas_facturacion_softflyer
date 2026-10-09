@@ -18,6 +18,15 @@ async function forward(request: NextRequest, { params }: { params: Promise<{ pat
   const path = (await params).path.join("/");
   const host = hostFrom(request.headers);
 
+  // Login, PIN y logout devuelven o manejan tokens: solo por acciones de servidor, que
+  // los guardan en la cookie httpOnly. Por aquí el JavaScript del navegador podría leerlos.
+  if (path.startsWith("auth/") && path !== "auth/yo") {
+    return Response.json(
+      { error: { codigo: "RECURSO_NO_ENCONTRADO", mensaje: "El recurso no existe.", detalles: null } },
+      { status: 404 },
+    );
+  }
+
   // Escrituras solo desde la misma página: corta CSRF desde otro subdominio.
   if (request.method !== "GET" && request.method !== "HEAD" && !sameOrigin(request, host)) {
     return Response.json(

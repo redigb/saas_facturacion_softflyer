@@ -9,6 +9,7 @@ import { errorMessage, useDeleteCategory, useSaveCategory } from "@/app/panel/ca
 import { applyApiErrors, CATEGORY_COLORS, dangerButton, Drawer, Field, inputClass, primaryButton, secondaryButton } from "@/app/panel/carta/ui";
 import { useToast } from "@/app/panel/providers";
 import { Icon } from "@/components/icons";
+import { CustomSelect } from "@/components/ui";
 import { categoryFormSchema, type Category, type CategoryFormValues, type Station } from "@/lib/schemas/carta";
 
 type Props = {
@@ -39,6 +40,7 @@ export function CategoryDialog({ open, category, stations, onClose, onCreated, c
     } satisfies CategoryFormValues,
   });
   const color = useWatch({ control, name: "color" });
+  const estacionPreparacionId = useWatch({ control, name: "estacion_preparacion_id" });
 
   async function submit(values: CategoryFormValues, thenAddProduct: boolean) {
     try {
@@ -156,14 +158,20 @@ export function CategoryDialog({ open, category, stations, onClose, onCreated, c
 
         <Field label="Estación de preparación" hint="Adónde llegan los platos de esta categoría: cocina, bar…">
           {(id, describedBy) => (
-            <select id={id} {...register("estacion_preparacion_id")} aria-describedby={describedBy} className={inputClass}>
-              <option value="">Sin estación asignada</option>
-              {stations.map((station) => (
-                <option key={station.id} value={station.id}>
-                  {station.nombre}
-                </option>
-              ))}
-            </select>
+            <CustomSelect
+              id={id}
+              aria-describedby={describedBy}
+              value={estacionPreparacionId ?? ""}
+              onChange={(val) => setValue("estacion_preparacion_id", val, { shouldDirty: true, shouldValidate: true })}
+              options={[
+                { value: "", label: "Sin estación asignada" },
+                ...stations.map((station) => ({
+                  value: String(station.id),
+                  label: station.nombre,
+                  icon: "cocina" as const,
+                })),
+              ]}
+            />
           )}
         </Field>
 

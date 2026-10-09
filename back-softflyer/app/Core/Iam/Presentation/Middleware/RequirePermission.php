@@ -8,13 +8,17 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
- * Uso: ->middleware('permiso:panel.ver'). Corre despues de auth:sanctum.
+ * Uso: ->middleware('permiso:panel.ver'), o 'permiso:a|b' para exigir cualquiera de ellos.
+ * Corre despues de auth:sanctum.
  */
 final class RequirePermission
 {
     public function handle(Request $request, Closure $next, string $permission): Response
     {
-        if (! $request->user()?->hasPermission($permission)) {
+        $user = $request->user();
+        $allowed = $user !== null && collect(explode('|', $permission))->contains(fn (string $code) => $user->hasPermission($code));
+
+        if (! $allowed) {
             throw new AccessDeniedHttpException;
         }
 

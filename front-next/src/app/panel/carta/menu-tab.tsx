@@ -9,6 +9,7 @@ import { ProductDrawer } from "@/app/panel/carta/product-drawer";
 import { ProductList } from "@/app/panel/carta/product-list";
 import { useCategories, useModifierGroups, useProducts, useStations } from "@/app/panel/carta/queries";
 import { primaryButton, Skeleton } from "@/app/panel/carta/ui";
+import { MasterDetailLayout } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import type { Category, Product } from "@/lib/schemas/carta";
 
@@ -81,31 +82,46 @@ export function MenuTab() {
       {isEmpty ? (
         <EmptyState onStart={() => setCategoryDialog({ open: true })} />
       ) : (
-        <div className="lg:grid lg:grid-cols-[320px_1fr] lg:gap-8">
-          <CategoryList
-            categories={sortedCategories}
-            uncategorized={uncategorized}
-            total={products.data.length}
-            selected={current}
-            onSelect={(selection) => {
-              setSelected(selection);
-              setSearch("");
-            }}
-            onCreate={() => setCategoryDialog({ open: true })}
-            onEdit={(category) => setCategoryDialog({ open: true, category })}
-          />
-
-          <ProductList
-            title={search ? `Resultados para “${search.trim()}”` : current === "todas" ? "Todos los productos" : current === "sin" ? "Sin categoría" : (currentCategory?.nombre ?? "")}
-            products={visible}
-            stations={stations.data ?? []}
-            search={search}
-            onSearch={setSearch}
-            onAdd={() => setDrawer({ open: true })}
-            onOpen={(product) => setDrawer({ open: true, product })}
-            onEditCategory={currentCategory && can.edit && !search ? () => setCategoryDialog({ open: true, category: currentCategory }) : undefined}
-          />
-        </div>
+        <MasterDetailLayout
+          sidebar={
+            <CategoryList
+              categories={sortedCategories}
+              uncategorized={uncategorized}
+              total={products.data.length}
+              selected={current}
+              onSelect={(selection) => {
+                setSelected(selection);
+                setSearch("");
+              }}
+              onCreate={() => setCategoryDialog({ open: true })}
+              onEdit={(category) => setCategoryDialog({ open: true, category })}
+            />
+          }
+          content={
+            <ProductList
+              title={
+                search
+                  ? `Resultados para “${search.trim()}”`
+                  : current === "todas"
+                  ? "Todos los productos"
+                  : current === "sin"
+                  ? "Sin categoría"
+                  : (currentCategory?.nombre ?? "")
+              }
+              products={visible}
+              stations={stations.data ?? []}
+              search={search}
+              onSearch={setSearch}
+              onAdd={() => setDrawer({ open: true })}
+              onOpen={(product) => setDrawer({ open: true, product })}
+              onEditCategory={
+                currentCategory && can.edit && !search
+                  ? () => setCategoryDialog({ open: true, category: currentCategory })
+                  : undefined
+              }
+            />
+          }
+        />
       )}
 
       <ProductDrawer
