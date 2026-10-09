@@ -14,6 +14,6 @@ class ModifierGroup extends BaseModel
 
     public function modifiers(): HasMany
     {
-        return $this->hasMany(Modifier::class, 'modificador_grupo_id');
+        return $this->hasMany(Modifier::class, 'modificador_grupo_id')->orderBy('orden')->orderBy('id');
     }
 }

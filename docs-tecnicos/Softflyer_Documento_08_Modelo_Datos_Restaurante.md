@@ -542,6 +542,7 @@ El inventario va al final a propósito: un restaurante puede empezar a operar (p
 | Zona horaria | Las conexiones a PostgreSQL fijan `timezone = UTC`. Sin esto, un servidor configurado en hora de Perú desplazaba 5 horas cada `timestamptz` que Laravel escribe sin offset. |
 | Backoffice | Tablas globales `administradores_plataforma` y `bitacora_plataforma` (contexto `app/Platform`). Las acciones (activar plan, extender prueba, suspender, reactivar, crear cliente) escriben dentro del contexto RLS del cliente; pasar de prueba a pago abre una suscripción nueva y conserva la anterior como historial. |
 | Pendiente lote 7 | `ventas.pedido_id` también haría que el Core apunte al módulo. Al implementar el cobro se resolverá con `venta_detalle_pedido` (ya en el módulo), sin columna en `ventas`. |
+| `claves_idempotencia` (spec 001) | Se adelanta del lote 10 a H0 (Doc. 09). Columnas extra respecto al Doc. 07 §5: `hash_solicitud` (misma clave con otro cuerpo → 409 `IDEMPOTENCIA_CONFLICTO`) y `codigo_http` nulo mientras la operación sigue en curso (409 `IDEMPOTENCIA_EN_PROCESO`). `UNIQUE (inquilino_id, endpoint, clave)`; se borran a las 24 h. Las respuestas 5xx no se guardan. |
 
 ---
 

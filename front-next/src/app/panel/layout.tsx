@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { logout } from "@/app/panel/actions";
 import { PanelShell } from "@/app/panel/panel-shell";
+import { PanelProviders } from "@/app/panel/providers";
 import { AuthShell } from "@/components/auth-shell";
 import { SalesButton } from "@/components/sales-button";
 import { apiFetch, type Me } from "@/lib/api";
@@ -47,7 +48,11 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     );
   }
 
-  return <PanelShell me={me}>{children}</PanelShell>;
+  return (
+    <PanelProviders>
+      <PanelShell me={me}>{children}</PanelShell>
+    </PanelProviders>
+  );
 }
 
 function LogoutButton() {

@@ -17,6 +17,17 @@ const PATHS = {
   salir: "M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 16l-4-4 4-4M6 12h10",
   calendario: "M4 6h16v14H4zM4 10h16M8 3v4m8-4v4",
   rayo: "M13 3 5 13h6l-1 8 8-10h-6l1-8Z",
+  mas: "M12 5v14M5 12h14",
+  buscar: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm9 2-4.35-4.35",
+  arrastrar: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
+  editar: "M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4",
+  basura: "M4 7h16M10 11v6M14 11v6M5 7l1 13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-13M9 7V4h6v3",
+  alerta: "M12 9v4m0 4h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z",
+  abajo: "m6 9 6 6 6-6",
+  cuadricula: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
+  lista: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+  plato: "M3 18h18M4 18a8 8 0 0 1 16 0M12 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
+  bebida: "M8 21h8M12 17v4M5 4h14l-2 9a4 4 0 0 1-4 3h-2a4 4 0 0 1-4-3L5 4Z",
 } as const;
 
 export type IconName = keyof typeof PATHS;

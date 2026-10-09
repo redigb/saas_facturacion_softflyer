@@ -16,6 +16,7 @@ Softflyer nace como un nucleo empresarial reutilizable y crece mediante modulos 
 back-softflyer/  API Laravel
 front-next/      Aplicacion Next.js
 docs-tecnicos/   Fuente de verdad funcional y tecnica
+specs/           Specs de cada avance: contrato (backend) y experiencia (frontend)
 ```
 
 ## Arranque local

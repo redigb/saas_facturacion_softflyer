@@ -11,3 +11,7 @@ Construye Softflyer como un producto confiable para negocios que no pueden deten
 - Verifica backend, frontend y PostgreSQL antes de cerrar una implementacion.
 
 Si el codigo contradice un documento tecnico, detente y resuelve la decision de forma explicita.
+
+## Specs
+
+Todo avance se trabaja como una spec en `specs/` (reglas en su `README.md`). Cada spec cubre backend (`backend.md`: el contrato manda) y frontend (`frontend.md`: la experiencia manda). Una sola abierta a la vez; se cierra con ambos lados listos y las pruebas en verde, y recién se abre la siguiente.

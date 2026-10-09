@@ -10,4 +10,9 @@ class PreparationStation extends BaseModel
     use BelongsToTenant;
 
     protected $table = 'estaciones_preparacion';
+
+    protected function casts(): array
+    {
+        return ['es_activa' => 'boolean'];
+    }
 }

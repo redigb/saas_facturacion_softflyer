@@ -26,7 +26,7 @@ export const NAVIGATION: NavSection[] = [
   {
     title: "Gestión",
     items: [
-      { label: "Carta", icon: "carta" },
+      { label: "Carta", icon: "carta", href: "/panel/carta" },
       { label: "Inventario", icon: "inventario" },
       { label: "Facturación", icon: "facturacion" },
     ],

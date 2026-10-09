@@ -19,6 +19,7 @@ const MODE_BADGE = {
 
 export function PanelShell({ me, children }: { me: Me; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const mode = me.inquilino.modo;
   const isDemo = mode === "DEMO";
   const trial = me.inquilino.prueba;
@@ -36,12 +37,30 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-68 flex-col border-r border-slate-200 bg-white transition-transform lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200/90 bg-white transition-all duration-300 ease-in-out lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        } ${collapsed ? "w-20" : "w-68"}`}
       >
-        <div className="flex h-20 items-center justify-between px-6">
-          <Logo className="h-11 w-auto" />
+        {/* Botón flotante en el borde divisor (solo en desktop) */}
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? "Expandir menú lateral" : "Colapsar menú lateral"}
+          title={collapsed ? "Expandir menú" : "Colapsar menú"}
+          className="absolute -right-3.5 top-7 z-50 hidden h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-xs transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-azul focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/40 lg:flex"
+        >
+          <Icon
+            name="abajo"
+            className={`h-4 w-4 transition-transform duration-300 ${
+              collapsed ? "-rotate-90 text-azul" : "rotate-90 text-slate-500"
+            }`}
+          />
+        </button>
+
+        <div className={`flex h-20 items-center justify-between ${collapsed ? "px-3 justify-center" : "px-6"}`}>
+          <div className="flex items-center justify-center overflow-hidden">
+            <Logo className={`transition-all duration-300 ${collapsed ? "h-9 w-9 object-contain" : "h-11 w-auto"}`} />
+          </div>
           <button
             type="button"
             onClick={() => setOpen(false)}
@@ -52,20 +71,29 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
           </button>
         </div>
 
-        <Sidebar onNavigate={() => setOpen(false)} />
+        <Sidebar collapsed={collapsed} onNavigate={() => setOpen(false)} />
 
-        <div className="m-4 rounded-2xl bg-niebla p-4">
-          <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Tu cuenta</p>
-          <p className="mt-1 truncate text-sm font-bold text-tinta">{me.inquilino.nombre}</p>
+        <div className={`m-3 rounded-2xl bg-slate-50 border border-slate-100 transition-all ${collapsed ? "p-2 text-center" : "p-3.5"}`}>
+          {!collapsed && (
+            <>
+              <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Tu cuenta</p>
+              <p className="mt-0.5 truncate text-sm font-bold text-tinta">{me.inquilino.nombre}</p>
+            </>
+          )}
           <span
-            className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wide uppercase ${MODE_BADGE[mode].className}`}
+            title={me.inquilino.nombre}
+            className={`inline-block rounded-full font-bold tracking-wide uppercase transition-all ${
+              collapsed
+                ? "h-4 w-4 rounded-full mt-0.5"
+                : "mt-1.5 px-2.5 py-0.5 text-[10px]"
+            } ${MODE_BADGE[mode].className}`}
           >
-            {MODE_BADGE[mode].label}
+            {collapsed ? "" : MODE_BADGE[mode].label}
           </span>
         </div>
       </aside>
 
-      <div className="lg:pl-68">
+      <div className={`transition-all duration-300 ease-in-out ${collapsed ? "lg:pl-20" : "lg:pl-68"}`}>
         {isDemo && (
           <div className="flex items-center justify-center gap-2 bg-amarillo px-4 py-2 text-center text-sm font-semibold text-tinta">
             <Icon name="rayo" className="h-4 w-4 shrink-0" />
@@ -89,14 +117,14 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
           </div>
         )}
 
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:px-8">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200/80 bg-white/95 px-4 backdrop-blur-xs sm:px-8">
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="rounded-lg p-2 text-tinta hover:bg-niebla lg:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-tinta transition-colors hover:bg-slate-100 active:scale-[0.97] lg:hidden"
             aria-label="Abrir menú"
           >
-            <Icon name="menu" />
+            <Icon name="menu" className="h-6 w-6" />
           </button>
 
           <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-500">
@@ -108,16 +136,16 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
               <p className="text-sm font-bold text-tinta">{me.usuario.nombre}</p>
               <p className="text-xs text-slate-500">{me.roles.join(", ")}</p>
             </div>
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-azul text-sm font-bold text-white">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-azul text-sm font-bold text-white shadow-2xs">
               {initials(me.usuario.nombre)}
             </span>
             <form action={logout}>
               <button
                 type="submit"
                 title="Cerrar sesión"
-                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-niebla hover:text-azul"
+                className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-100 hover:text-azul active:scale-[0.97]"
               >
-                <Icon name="salir" />
+                <Icon name="salir" className="h-4.5 w-4.5" />
                 <span className="hidden md:inline">Salir</span>
               </button>
             </form>
@@ -130,20 +158,26 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
   );
 }
 
-function Sidebar({ onNavigate }: { onNavigate: () => void }) {
+function Sidebar({ collapsed, onNavigate }: { collapsed: boolean; onNavigate: () => void }) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-2" aria-label="Secciones del panel">
+    <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2" aria-label="Secciones del panel">
       {NAVIGATION.map((section) => (
         <div key={section.title}>
-          <p className="px-3 pb-2 text-[11px] font-bold tracking-widest text-slate-400 uppercase">
-            {section.title}
-          </p>
-          <ul className="space-y-0.5">
+          {!collapsed ? (
+            <p className="px-3 pb-2 text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+              {section.title}
+            </p>
+          ) : (
+            <div className="mx-auto my-2 h-px w-8 bg-slate-100" />
+          )}
+          <ul className="space-y-1">
             {section.items.map((item) => {
               const active = item.href === pathname;
-              const base = "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold";
+              const base = `flex w-full items-center rounded-2xl text-sm font-semibold transition-all ${
+                collapsed ? "h-12 w-12 mx-auto justify-center active:scale-[0.96]" : "h-11 gap-3.5 px-3.5 active:scale-[0.99]"
+              }`;
 
               return (
                 <li key={item.label}>
@@ -151,21 +185,32 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
                     <Link
                       href={item.href}
                       onClick={onNavigate}
+                      title={collapsed ? item.label : undefined}
                       aria-current={active ? "page" : undefined}
-                      className={`${base} transition ${
-                        active ? "bg-azul text-white shadow-sm" : "text-tinta hover:bg-niebla hover:text-azul"
+                      className={`${base} ${
+                        active
+                          ? "bg-azul text-white shadow-xs ring-2 ring-azul/20"
+                          : "text-tinta hover:bg-slate-100/80 hover:text-azul"
                       }`}
                     >
-                      <Icon name={item.icon} />
-                      {item.label}
+                      <Icon name={item.icon} className={collapsed ? "h-6 w-6" : "h-5 w-5"} />
+                      {!collapsed && <span>{item.label}</span>}
                     </Link>
                   ) : (
-                    <span className={`${base} cursor-not-allowed text-slate-400`} aria-disabled="true">
-                      <Icon name={item.icon} />
-                      <span className="flex-1">{item.label}</span>
-                      <span className="rounded-md bg-niebla px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-slate-400 uppercase">
-                        Pronto
-                      </span>
+                    <span
+                      title={collapsed ? `${item.label} (Próximamente)` : undefined}
+                      className={`${base} cursor-not-allowed text-slate-300`}
+                      aria-disabled="true"
+                    >
+                      <Icon name={item.icon} className={collapsed ? "h-6 w-6" : "h-5 w-5"} />
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1">{item.label}</span>
+                          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-slate-400 uppercase">
+                            Pronto
+                          </span>
+                        </>
+                      )}
                     </span>
                   )}
                 </li>

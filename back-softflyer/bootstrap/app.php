@@ -2,6 +2,7 @@
 
 use App\Core\Iam\Presentation\Middleware\RequirePermission;
 use App\Core\Tenancy\Presentation\Middleware\EnsureAccountIsActive;
+use App\Core\Tenancy\Presentation\Middleware\EnsureIdempotency;
 use App\Core\Tenancy\Presentation\Middleware\ResolveTenantFromSubdomain;
 use App\Shared\Presentation\ApiErrorRenderer;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'inquilino' => ResolveTenantFromSubdomain::class,
             'permiso' => RequirePermission::class,
             'cuenta.vigente' => EnsureAccountIsActive::class,
+            'idempotente' => EnsureIdempotency::class,
         ]);
 
         // El inquilino se resuelve siempre antes de autenticar (Doc. 07 §2.2).

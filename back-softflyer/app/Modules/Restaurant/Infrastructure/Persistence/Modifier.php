@@ -10,4 +10,9 @@ class Modifier extends BaseModel
     use BelongsToTenant;
 
     protected $table = 'modificadores';
+
+    protected function casts(): array
+    {
+        return ['precio_adicional' => 'decimal:2', 'es_activo' => 'boolean'];
+    }
 }
