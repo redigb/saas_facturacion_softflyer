@@ -5,3 +5,4 @@ export * from "./price-cell";
 export * from "./empty-state";
 export * from "./form-field";
 export * from "./custom-select";
+export * from "./confirm-dialog";

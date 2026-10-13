@@ -22,7 +22,7 @@ export const NAVIGATION: NavSection[] = [
       { label: "Plano del salón", icon: "plano", href: "/panel/plano", permisos: ["restaurante.plano.editar"] },
       { label: "Pedidos", icon: "pedidos", href: "/panel/pedidos", permisos: ["restaurante.pedidos.crear"] },
       { label: "Cocina", icon: "cocina", href: "/panel/cocina", permisos: ["restaurante.cocina.actualizar_estado"] },
-      { label: "Caja", icon: "caja", permisos: ["caja.abrir"] },
+      { label: "Caja", icon: "caja", href: "/panel/caja", permisos: ["caja.abrir"] },
     ],
   },
   {

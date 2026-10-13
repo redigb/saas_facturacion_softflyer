@@ -35,6 +35,9 @@ class User extends Authenticatable
     /** @var list<string>|null */
     private ?array $permissionCodes = null;
 
+    /** @var Collection<int, Branch>|null */
+    private ?Collection $branches = null;
+
     protected function casts(): array
     {
         return [
@@ -78,6 +81,13 @@ class User extends Authenticatable
      * @return Collection<int, Branch>
      */
     public function branches(): Collection
+    {
+        // Memoizada por instancia: autorizar varios canales en una petición consulta una sola vez.
+        return $this->branches ??= $this->loadBranches();
+    }
+
+    /** @return Collection<int, Branch> */
+    private function loadBranches(): Collection
     {
         $scopes = DB::table('rol_usuario')->where('usuario_id', $this->getKey())->pluck('sucursal_id');
 

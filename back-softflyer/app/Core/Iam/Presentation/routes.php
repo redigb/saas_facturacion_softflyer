@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Iam\Presentation\Controllers\AuthController;
+use App\Core\Iam\Presentation\Controllers\ChannelAuthController;
 use App\Core\Iam\Presentation\Controllers\TeamController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
@@ -18,7 +19,11 @@ Route::middleware('inquilino')->prefix('auth')->group(function (): void {
 });
 
 // Autorizacion de canales privados en tiempo real (spec 005), dentro del inquilino del subdominio.
-Route::middleware(['inquilino', 'auth:sanctum'])->post('/broadcasting/auth', fn (Request $request) => Broadcast::auth($request));
+Route::middleware(['inquilino', 'auth:sanctum'])->group(function (): void {
+    Route::post('/broadcasting/auth', fn (Request $request) => Broadcast::auth($request));
+    // Todos los canales de un dispositivo en una sola peticion (spec 008).
+    Route::post('/broadcasting/auth/lote', [ChannelAuthController::class, 'batch']);
+});
 
 // Equipo del restaurante (spec 004).
 Route::middleware(['inquilino', 'auth:sanctum', 'cuenta.vigente'])->group(function (): void {

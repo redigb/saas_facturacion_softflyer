@@ -23,3 +23,7 @@ Broadcast::channel('sucursal.{branch}.estacion.{station}', fn (User $user, int $
 
 Broadcast::channel('sucursal.{branch}.mozo.{waiter}', fn (User $user, int $branch, int $waiter) => $user->getKey() === $waiter
     && $user->worksAt($branch));
+
+// Caja (spec 009): cobros y turnos de la sucursal, para quien cobra o supervisa.
+Broadcast::channel('sucursal.{branch}.caja', fn (User $user, int $branch) => $user->worksAt($branch)
+    && ($user->hasPermission('caja.abrir') || $user->hasPermission('caja.ver_movimientos') || $user->hasPermission('panel.ver')));

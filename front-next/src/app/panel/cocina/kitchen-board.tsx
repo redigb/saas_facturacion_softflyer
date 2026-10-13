@@ -291,35 +291,4 @@ function useStoredSound(): [boolean, (on: boolean) => void] {
     writeStorage(SOUND_KEY, value ? "1" : null);
   }];
 }
-function readStorage(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
 
-function writeStorage(key: string, value: string | null) {
-  try {
-    if (value === null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, value);
-  } catch {
-    // Sin almacenamiento la preferencia dura hasta recargar.
-  }
-  listeners.forEach((listener) => listener());
-}
-
-function useStoredStation(): [Station | null, (station: Station | null) => void] {
-  const raw = useSyncExternalStore(subscribe, () => readStorage(STATION_KEY), () => null);
-  const station: Station | null = raw === null ? null : raw === "general" ? "general" : Number(raw);
-  return [station, (value) => writeStorage(STATION_KEY, value === null ? null : String(value))];
-}
-
-function useStoredSound(): [boolean, (on: boolean) => void] {
-  // El sonido no se activa solo al recargar: el navegador exige un toque primero.
-  const [on, setOn] = useState(false);
-  return [on, (value) => {
-    setOn(value);
-    writeStorage(SOUND_KEY, value ? "1" : null);
-  }];
-}

@@ -214,6 +214,24 @@ export function ItemPropertiesCard({
   const rotate = (delta: number) => {
     update({ rotacion: (((item.rotacion + delta) % 360) + 360) % 360 });
   };
+  const rotate90 = () => {
+    // Intercambiar ancho y alto manteniendo el centro visual en su lugar
+    const oldW = item.ancho;
+    const oldH = item.alto;
+    const newW = oldH;
+    const newH = oldW;
+    const cx = item.pos_x + oldW / 2;
+    const cy = item.pos_y + oldH / 2;
+    const newX = Math.max(0, Math.min(state.width - newW, snap(cx - newW / 2)));
+    const newY = Math.max(0, Math.min(state.height - newH, snap(cy - newH / 2)));
+
+    update({
+      ancho: newW,
+      alto: newH,
+      pos_x: newX,
+      pos_y: newY,
+    });
+  };
   const busy = item.kind === "mesa" && item.estado !== "LIBRE";
   const itemTitle = item.kind === "mesa" ? `Mesa ${item.codigo}` : ELEMENT_NAME[item.tipo];
 
@@ -323,15 +341,56 @@ export function ItemPropertiesCard({
         />
       </div>
 
-      <div>
-        <span className="mb-1 block text-xs font-bold text-tinta">Rotación: {item.rotacion}°</span>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => rotate(-15)} className="flex-1">
-            ↺ 15°
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-tinta">Orientación y Giro</span>
+          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 tabular-nums">
+            {item.rotacion}°
+          </span>
+        </div>
+
+        {/* Botón para girar 90° e intercambiar ancho ⇄ alto */}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={rotate90}
+          className="w-full justify-center gap-2 font-bold text-azul"
+          title="Gira 90° intercambiando el ancho y alto del elemento"
+        >
+          <span className="text-base font-normal">⤹</span> Girar 90° (Ancho ⇄ Alto)
+        </Button>
+
+        {/* Botones de ajuste fino */}
+        <div className="flex gap-1.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => rotate(-15)}
+            className="flex-1 text-xs"
+            title="Girar 15° antihorario"
+          >
+            ↺ -15°
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => rotate(15)} className="flex-1">
-            ↻ 15°
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => rotate(15)}
+            className="flex-1 text-xs"
+            title="Girar 15° horario"
+          >
+            ↻ +15°
           </Button>
+          {item.rotacion !== 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => update({ rotacion: 0 })}
+              className="text-xs text-slate-500"
+              title="Restablecer a 0°"
+            >
+              0°
+            </Button>
+          )}
         </div>
       </div>
 

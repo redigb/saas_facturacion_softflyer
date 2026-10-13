@@ -2,6 +2,7 @@
 
 use App\Modules\Restaurant\Application\GetDashboardSummary;
 use App\Modules\Restaurant\Presentation\Controllers\CategoryController;
+use App\Modules\Restaurant\Presentation\Controllers\ChargeController;
 use App\Modules\Restaurant\Presentation\Controllers\DiningRoomController;
 use App\Modules\Restaurant\Presentation\Controllers\KitchenController;
 use App\Modules\Restaurant\Presentation\Controllers\MenuController;
@@ -55,7 +56,10 @@ Route::middleware(['inquilino', 'auth:sanctum', 'cuenta.vigente'])->group(functi
 
     // Pedidos del mozo (spec 006). Abrir y enviar a cocina son idempotentes (Doc. 07 §5).
     Route::get('/pedidos', [OrderController::class, 'index'])->middleware('permiso:restaurante.pedidos.crear|panel.ver');
-    Route::get('/pedidos/{order}', [OrderController::class, 'show'])->middleware('permiso:restaurante.pedidos.crear|panel.ver');
+    // Cobro (spec 009): el cajero ve los pedidos por cobrar y cada uno por separado.
+    Route::get('/pedidos/por-cobrar', [ChargeController::class, 'index'])->middleware('permiso:ventas.crear');
+    Route::post('/pedidos/{order}/cobro', [ChargeController::class, 'store'])->middleware(['permiso:ventas.crear', 'idempotente']);
+    Route::get('/pedidos/{order}', [OrderController::class, 'show'])->middleware('permiso:restaurante.pedidos.crear|panel.ver|ventas.crear');
     Route::post('/pedidos', [OrderController::class, 'store'])->middleware(['permiso:restaurante.pedidos.crear', 'idempotente']);
     Route::post('/pedidos/{order}/comandas', [OrderController::class, 'send'])->middleware(['permiso:restaurante.pedidos.crear', 'idempotente']);
     Route::post('/pedidos/{order}/detalles/{item}/anular', [OrderController::class, 'voidItem'])->middleware('permiso:restaurante.pedidos.anular_item');

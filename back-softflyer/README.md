@@ -44,6 +44,8 @@ copy .env.example .env   # completar DB_PASSWORD y DB_OWNER_PASSWORD
 composer install
 php artisan key:generate
 php artisan migrate --database=pgsql_owner --seed
+
+
 php artisan serve --host=127.0.0.1 --port=8000
 php artisan reverb:start   # en otra terminal: tiempo real (ver la sección siguiente)
 ```

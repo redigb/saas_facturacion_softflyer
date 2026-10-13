@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { useToast } from "@/app/panel/providers";
+import { applyOrderEvent } from "@/app/panel/pedidos/queries";
 import { createEcho, type RealtimeStatus } from "@/lib/realtime";
 
-/** Eventos de los contratos de las specs 005, 006 y 007. */
+/** Eventos de los contratos de las specs 005, 006, 007 y 009. */
 export type RealtimeEvents = {
   PlanoActualizado: { salon_id: number; version: number; usuario_id: number };
   CartaActualizada: { usuario_id: number };
@@ -17,6 +18,7 @@ export type RealtimeEvents = {
   PlatoAnulado: { detalle_id: number; comanda_id: number; pedido_id: number; usuario_id: number };
   EstadoCocinaActualizado: { comanda_id: number; pedido_id: number; usuario_id: number };
   PlatoListo: { pedido_id: number; detalle_ids: number[]; mesa: string | null; platos: string[]; usuario_id: number };
+  CajaActualizada: { sesion_id: number; usuario_id: number };
 };
 
 type EventName = keyof RealtimeEvents;
@@ -90,11 +92,8 @@ export function RealtimeProvider({
         MENU_QUERIES.forEach((queryKey) => void queryClient.invalidateQueries({ queryKey }));
       }
       if (name === "PedidoActualizado" || name === "PlatoListo") {
-        // El salón y el pedido abierto se vuelven a pedir (specs 006 y 007).
-        const { pedido_id } = data as { pedido_id: number };
-        void queryClient.invalidateQueries({ queryKey: ["pedidos"], exact: true });
-        void queryClient.invalidateQueries({ queryKey: ["pedidos", pedido_id] });
-        if (name === "PedidoActualizado") void queryClient.invalidateQueries({ queryKey: ["salones"] });
+        // Se pide solo el pedido que cambió; ni la lista completa ni los planos (spec 008).
+        void applyOrderEvent(queryClient, data as { pedido_id: number; estado?: string; version?: number });
       }
       if (name === "PlatoListo") notifyRef.current(data as RealtimeEvents["PlatoListo"]);
       listeners.current.forEach((listener) => listener(name, data));

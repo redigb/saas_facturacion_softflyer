@@ -8,6 +8,7 @@ Construye Softflyer como un producto confiable para negocios que no pueden deten
 - Nunca confies solo en filtros de aplicacion para aislar inquilinos: aplica RLS.
 - Conserva la direccion de dependencias: Modulos -> Core.
 - No bloquees una venta esperando servicios externos como SUNAT.
+- Nunca uses diálogos nativos (`confirm`, `alert`, `prompt`); usa el modal `ConfirmDialog` de la UI.
 - Verifica backend, frontend y PostgreSQL antes de cerrar una implementacion.
 
 Si el codigo contradice un documento tecnico, detente y resuelve la decision de forma explicita.

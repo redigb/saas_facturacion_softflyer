@@ -48,6 +48,8 @@ export const kitchenStates = ["PENDIENTE", "EN_PREPARACION", "LISTO", "ENTREGADO
 
 export const orderSchema = z.object({
   ...orderHeader,
+  /** Lo que falta cobrar (spec 009): con cuenta dividida es menor que `total`. */
+  pendiente: decimal,
   detalles: z.array(
     z.object({
       id: z.number(),
@@ -57,6 +59,7 @@ export const orderSchema = z.object({
       precio_unitario: decimal,
       notas: z.string().nullable(),
       estado_cocina: z.enum(kitchenStates),
+      cobrado: z.boolean(),
       comanda: z.object({ id: z.number(), numero: z.number(), estacion_preparacion_id: z.number().nullable(), enviada_en: z.string().nullable() }).nullable(),
       modificadores: z.array(z.object({ id: z.number(), nombre: z.string(), precio_adicional: decimal })),
       subtotal: decimal,

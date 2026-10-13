@@ -69,6 +69,38 @@ class RealtimeTest extends DatabaseTestCase
             ->assertUnauthorized();
     }
 
+    public function test_channels_are_authorized_in_one_batch_and_denied_ones_come_back_null(): void
+    {
+        $waiter = $this->user('Mozo', 'mozo@donjose.pe', branch: $this->branch);
+        $waiterId = $this->asTenant($this->tenant, fn () => User::where('correo', 'mozo@donjose.pe')->value('id'));
+
+        $response = $this->batch($waiter, ["sucursal.{$this->branch}.salon", "sucursal.{$this->branch}.mozo.{$waiterId}", "sucursal.{$this->branch}.mozo." . ($waiterId + 999), 'sucursal.999999.salon'])
+            ->assertOk();
+
+        // Los nombres de canal llevan puntos: se leen del arreglo, no con notación de puntos.
+        $data = $response->json('data');
+        $this->assertStringStartsWith('clave-prueba:', $data["private-sucursal.{$this->branch}.salon"]['auth']);
+        $this->assertStringStartsWith('clave-prueba:', $data["private-sucursal.{$this->branch}.mozo.{$waiterId}"]['auth']);
+        $this->assertNull($data["private-sucursal.{$this->branch}.mozo." . ($waiterId + 999)]);
+        $this->assertNull($data['private-sucursal.999999.salon']);
+    }
+
+    public function test_batch_needs_a_session_other_tenants_get_nothing_and_it_is_capped(): void
+    {
+        $other = $this->provision('otro');
+        $otherAdmin = $this->tokenFor($other, 'admin@otro.pe');
+        $this->forget();
+        $this->withToken($otherAdmin)->postJson($this->tenantUrl('otro', 'broadcasting/auth/lote'), ['socket_id' => '1.1', 'canales' => ["private-sucursal.{$this->branch}.salon"]])
+            ->assertOk()
+            ->assertExactJson(['data' => ["private-sucursal.{$this->branch}.salon" => null]]);
+
+        $this->batch($this->admin, array_map(fn (int $n) => "sucursal.{$n}.salon", range(1, 21)))->assertStatus(422);
+
+        $this->forget();
+        $this->postJson($this->tenantUrl('donjose', 'broadcasting/auth/lote'), ['socket_id' => '1.1', 'canales' => ['private-sucursal.1.salon']])
+            ->assertUnauthorized();
+    }
+
     public function test_branch_scoped_role_cannot_listen_to_another_branch(): void
     {
         $second = $this->asTenant($this->tenant, fn () => DB::table('sucursales')->insertGetId([
@@ -159,6 +191,17 @@ class RealtimeTest extends DatabaseTestCase
         return $this->withToken($token)->postJson($this->tenantUrl($slug, 'broadcasting/auth'), [
             'socket_id' => '1234.5678',
             'channel_name' => "private-{$channel}",
+        ]);
+    }
+
+    /** @param list<string> $channels */
+    private function batch(string $token, array $channels): TestResponse
+    {
+        $this->forget();
+
+        return $this->withToken($token)->postJson($this->tenantUrl('donjose', 'broadcasting/auth/lote'), [
+            'socket_id' => '1234.5678',
+            'canales' => array_map(fn (string $channel) => "private-{$channel}", $channels),
         ]);
     }
 

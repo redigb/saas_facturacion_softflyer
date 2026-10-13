@@ -41,5 +41,9 @@ Para crear una nueva, copia [`_plantilla/`](_plantilla/) con el siguiente númer
 | [005-tiempo-real](005-tiempo-real/spec.md) | H0 | ✅ | ✅ | Cerrada |
 | [006-pedidos-mozo](006-pedidos-mozo/spec.md) | H1 | ✅ | ✅ | Cerrada |
 | [007-cocina-kds](007-cocina-kds/spec.md) | H1 | ✅ | ✅ | Cerrada |
+| [008-tiempo-real-eficiente](008-tiempo-real-eficiente/spec.md) | H1 | ✅ | ✅ | Cerrada |
+| [009-caja-cobro](009-caja-cobro/spec.md) | H2 | ✅ | ✅ | Cerrada |
+| [010-comprobante-simulado](010-comprobante-simulado/spec.md) | H3 (parcial) | ✅ | ✅ | Cerrada |
+| [011-facturacion-greenter](011-facturacion-greenter/spec.md) | H3 | ⚪ | ⚪ | Pendiente de diseño |
 
-Siguientes (sin abrir todavía): H2, caja y cobro.
+Siguientes (sin abrir todavía): 011 (Greenter y SUNAT, pendiente de diseño), H4a inventario simple.

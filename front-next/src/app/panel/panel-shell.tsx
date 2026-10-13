@@ -6,8 +6,7 @@ import { useState } from "react";
 
 import { visibleNavigation } from "@/app/panel/navigation";
 import { RealtimeIndicator } from "@/app/panel/realtime";
-import { SwitchUserButton } from "@/app/panel/switch-user";
-import { logout } from "@/app/panel/actions";
+import { UserMenu } from "@/app/panel/user-menu";
 import { Icon } from "@/components/icons";
 import { Logo } from "@/components/logo";
 import { SalesButton } from "@/components/sales-button";
@@ -20,6 +19,8 @@ const MODE_BADGE = {
 } as const;
 
 export function PanelShell({ me, children }: { me: Me; children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isFullWidth = pathname.startsWith("/panel/plano");
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const mode = me.inquilino.modo;
@@ -130,30 +131,15 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
             {me.inquilino.nombre}
           </p>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-bold text-tinta">{me.usuario.nombre}</p>
-              <p className="text-xs text-slate-500">{me.roles.join(", ")}</p>
-            </div>
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-azul text-sm font-bold text-white shadow-2xs">
-              {initials(me.usuario.nombre)}
-            </span>
+          <div className="flex items-center gap-2 sm:gap-3">
             <RealtimeIndicator />
-            <SwitchUserButton />
-            <form action={logout}>
-              <button
-                type="submit"
-                title="Cerrar sesión"
-                className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-100 hover:text-azul active:scale-[0.97]"
-              >
-                <Icon name="salir" className="h-4.5 w-4.5" />
-                <span className="hidden md:inline">Salir</span>
-              </button>
-            </form>
+            <UserMenu me={me} />
           </div>
         </header>
 
-        <main className="mx-auto max-w-[1600px] px-3 py-6 sm:px-6">{children}</main>
+        <main className={isFullWidth ? "w-full px-4 sm:px-6 py-6" : "mx-auto max-w-7xl px-4 py-8 sm:px-8"}>
+          {children}
+        </main>
       </div>
     </div>
   );
@@ -222,11 +208,3 @@ function Sidebar({ permisos, collapsed, onNavigate }: { permisos: string[]; coll
   );
 }
 
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}

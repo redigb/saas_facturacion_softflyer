@@ -14,7 +14,7 @@ import { RoomTabs } from "@/app/panel/plano/room-tabs";
 import { useToast } from "@/app/panel/providers";
 import { useRealtimeEvent } from "@/app/panel/realtime";
 import { Icon } from "@/components/icons";
-import { Button, EmptyState } from "@/components/ui";
+import { Button, ConfirmDialog, EmptyState } from "@/components/ui";
 import { ApiRequestError } from "@/lib/browser-api";
 import type { Plan, Room } from "@/lib/schemas/plano";
 
@@ -25,6 +25,7 @@ export function FloorEditor({ canEdit }: { canEdit: boolean }) {
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
   const [dialog, setDialog] = useState<DialogState>({ open: false });
   const [dirty, setDirty] = useState(false);
+  const [pendingRoomId, setPendingRoomId] = useState<number | null>(null);
 
   const sorted = [...(rooms.data ?? [])].sort((a, b) => a.orden - b.orden || a.id - b.id);
   const current = sorted.find((room) => room.id === selectedRoom) ?? sorted[0];
@@ -67,7 +68,10 @@ export function FloorEditor({ canEdit }: { canEdit: boolean }) {
             canEdit={canEdit}
             onSelect={(id) => {
               if (id === current.id) return;
-              if (dirty && !window.confirm("Tienes cambios sin guardar en este salón. ¿Salir sin guardar?")) return;
+              if (dirty) {
+                setPendingRoomId(id);
+                return;
+              }
               setSelectedRoom(id);
             }}
             onCreate={() => setDialog({ open: true })}
@@ -76,6 +80,23 @@ export function FloorEditor({ canEdit }: { canEdit: boolean }) {
           <RoomPlan key={current.id} room={current} canEdit={canEdit} onDirtyChange={setDirty} />
         </>
       )}
+
+      <ConfirmDialog
+        open={pendingRoomId !== null}
+        title="¿Salir sin guardar cambios?"
+        description="Tienes modificaciones pendientes en este salón. Si cambias de salón ahora, esos cambios se perderán."
+        confirmLabel="Salir sin guardar"
+        cancelLabel="Seguir editando"
+        variant="warning"
+        onConfirm={() => {
+          if (pendingRoomId !== null) {
+            setDirty(false);
+            setSelectedRoom(pendingRoomId);
+            setPendingRoomId(null);
+          }
+        }}
+        onCancel={() => setPendingRoomId(null)}
+      />
 
       <RoomDialog
         key={dialog.open ? (dialog.room?.id ?? "nuevo") : "cerrado"}

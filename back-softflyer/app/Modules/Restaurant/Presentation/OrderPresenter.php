@@ -5,7 +5,9 @@ namespace App\Modules\Restaurant\Presentation;
 use App\Modules\Restaurant\Infrastructure\Persistence\Modifier;
 use App\Modules\Restaurant\Infrastructure\Persistence\Order;
 use App\Modules\Restaurant\Infrastructure\Persistence\OrderItem;
+use App\Shared\Domain\Money;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 /** Forma del contrato de specs/006-pedidos-mozo/backend.md. */
 final class OrderPresenter
@@ -14,9 +16,12 @@ final class OrderPresenter
     {
         $order->load(['table', 'waiter', 'items.product', 'items.ticket', 'items.voidedBy', 'items.modifiers']);
         $active = $order->items->whereNull('anulado_en');
+        // Platos ya cobrados en alguna venta (spec 009): la cuenta dividida muestra qué falta.
+        $charged = DB::table('venta_detalle_pedido')->whereIn('detalle_pedido_id', $order->items->modelKeys())->pluck('detalle_pedido_id')->all();
 
         return $this->header($order) + [
             'total' => $this->sum($active),
+            'pendiente' => Money::format($active->reject(fn (OrderItem $item) => in_array($item->id, $charged, true))->sum(fn (OrderItem $item) => Money::cents($item->subtotal()))),
             'detalles' => $order->items->map(fn (OrderItem $item) => [
                 'id' => $item->id,
                 'producto_id' => $item->producto_id,
@@ -25,6 +30,7 @@ final class OrderPresenter
                 'precio_unitario' => $item->precio_unitario,
                 'notas' => $item->notas,
                 'estado_cocina' => $item->estado_cocina,
+                'cobrado' => in_array($item->id, $charged, true),
                 'comanda' => $item->ticket ? [
                     'id' => $item->ticket->id,
                     'numero' => $item->ticket->numero,

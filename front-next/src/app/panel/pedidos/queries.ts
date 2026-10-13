@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { apiRequest } from "@/lib/browser-api";
 import { dataOf } from "@/lib/schemas/carta";
-import { menuSchema, orderSchema, orderSummarySchema, type CartLine, type Order } from "@/lib/schemas/pedidos";
+import { menuSchema, orderSchema, orderSummarySchema, type CartLine, type Order, type OrderSummary } from "@/lib/schemas/pedidos";
 
 export const keys = {
   menu: ["carta"] as const,
@@ -89,4 +89,55 @@ export function useOrderAction(orderId: number) {
 function updateOrder(queryClient: ReturnType<typeof useQueryClient>, order: Order) {
   queryClient.setQueryData(keys.order(order.id), order);
   void queryClient.invalidateQueries({ queryKey: keys.orders, exact: true });
+}
+
+const FINISHED_ORDER_STATES = ["CERRADO", "ANULADO"];
+
+/**
+ * Aviso de que otra persona cambió un pedido (spec 008). En vez de recargar la lista completa
+ * de pedidos, se quita el cerrado/anulado, se ignora lo que ya se conoce y, si hay algo nuevo,
+ * se pide solo ese pedido y se actualizan su detalle y su fila. Si el servidor no responde,
+ * la fila queda como estaba y se recupera al reconectar o al volver a la pantalla.
+ */
+export async function applyOrderEvent(
+  queryClient: ReturnType<typeof useQueryClient>,
+  event: { pedido_id: number; estado?: string; version?: number },
+) {
+  const { pedido_id: id } = event;
+
+  if (event.estado && FINISHED_ORDER_STATES.includes(event.estado)) {
+    queryClient.setQueryData<OrderSummary[]>(keys.orders, (list) => list?.filter((order) => order.id !== id));
+    void queryClient.invalidateQueries({ queryKey: keys.order(id) });
+    return;
+  }
+
+  const known = queryClient.getQueryData<Order>(keys.order(id))?.version ?? queryClient.getQueryData<OrderSummary[]>(keys.orders)?.find((order) => order.id === id)?.version;
+  if (event.version !== undefined && known !== undefined && known >= event.version) return;
+
+  try {
+    const order = await queryClient.fetchQuery({
+      queryKey: keys.order(id),
+      queryFn: async () => (await apiRequest(`pedidos/${id}`, dataOf(orderSchema))).data,
+      staleTime: 0,
+    });
+    queryClient.setQueryData<OrderSummary[]>(keys.orders, (list) => (list ? upsertSummary(list, order) : list));
+  } catch {
+    void queryClient.invalidateQueries({ queryKey: keys.orders, exact: true });
+  }
+}
+
+function upsertSummary(list: OrderSummary[], order: Order): OrderSummary[] {
+  if (FINISHED_ORDER_STATES.includes(order.estado)) return list.filter((item) => item.id !== order.id);
+
+  const items = order.detalles.filter((item) => !item.anulado);
+  const summary: OrderSummary = {
+    ...orderSummarySchema.omit({ platos: true, pendientes: true, listos: true }).parse(order),
+    platos: items.length,
+    pendientes: items.filter((item) => item.estado_cocina === "PENDIENTE" || item.estado_cocina === "EN_PREPARACION").length,
+    listos: items.filter((item) => item.estado_cocina === "LISTO").length,
+  };
+
+  return list.some((item) => item.id === order.id)
+    ? list.map((item) => (item.id === order.id ? summary : item))
+    : [...list, summary].sort((a, b) => a.abierto_en.localeCompare(b.abierto_en));
 }

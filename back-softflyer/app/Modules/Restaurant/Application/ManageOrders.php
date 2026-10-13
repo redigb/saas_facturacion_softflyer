@@ -203,6 +203,18 @@ final class ManageOrders
         });
     }
 
+    /**
+     * Cierra un pedido cobrado por completo y libera sus mesas. Va dentro de la
+     * transacción del cobro y con la fila del pedido bloqueada (spec 009).
+     */
+    public function close(Order $order): Order
+    {
+        $order->update(['estado' => Order::CLOSED, 'cerrado_en' => now(), 'version' => $order->version + 1]);
+        $this->releaseTables($order);
+
+        return $order;
+    }
+
     /** @return list<int> */
     public function tableIds(Order $order): array
     {

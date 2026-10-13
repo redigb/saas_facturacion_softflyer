@@ -33,7 +33,7 @@ export function SwitchUserButton({ className = "" }: { className?: string }) {
   );
 }
 
-function SwitchUserDialog({ onClose }: { onClose: () => void }) {
+export function SwitchUserDialog({ onClose }: { onClose: () => void }) {
   const [people, setPeople] = useState<Switchable[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [person, setPerson] = useState<Switchable | null>(null);
