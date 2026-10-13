@@ -61,7 +61,7 @@ Un comprobante de otra sucursal del usuario no existe para él (403).
 
 ## Preparación para Greenter
 
-Esta spec **no** integra Greenter (queda en la spec 011, pendiente de diseño). Lo que sí deja es el terreno firme: lo que cambiará es aditivo y no rompe el contrato de arriba ni la pantalla.
+Esta spec **no** integra Greenter (queda en la spec 017, pendiente de diseño). Lo que sí deja es el terreno firme: lo que cambiará es aditivo y no rompe el contrato de arriba ni la pantalla.
 
 ### Qué ya cumple el Doc. 04 / Doc. 08 §11
 
@@ -75,7 +75,7 @@ Esta spec **no** integra Greenter (queda en la spec 011, pendiente de diseño). 
 | Totales `op_gravada + igv = total` con el mismo `CHECK` que la venta | ✅ (ventas) |
 | Cobro no espera al comprobante visible | ✅ el enganche es un único método |
 
-### Qué falta y dónde se agrega (spec 011)
+### Qué falta y dónde se agrega (spec 017)
 
 | Pendiente | Cómo se agrega sin romper nada |
 |---|---|

@@ -3,8 +3,6 @@
 import { useState } from "react";
 
 import {
-  newKey,
-  nextTableCode,
   snap,
   type EditorAction,
   type EditorState,
@@ -59,67 +57,26 @@ const ELEMENTS: { tipo: ElementType; label: string; ancho: number; alto: number 
   { tipo: "TEXTO", label: "Texto", ancho: 160, alto: 40 },
 ];
 
-/** Paleta de Herramientas (Panel Izquierdo): Mesas y Elementos compactos y sin redondeos excesivos */
-export function ToolPalette({
-  state,
-  dispatch,
-}: {
-  state: EditorState;
-  dispatch: (action: EditorAction) => void;
-}) {
-  function center(ancho: number, alto: number) {
-    return {
-      pos_x: snap(Math.max(0, (state.width - ancho) / 2)),
-      pos_y: snap(Math.max(0, (state.height - alto) / 2)),
-      ancho,
-      alto,
-      rotacion: 0,
-    };
-  }
-
-  function addTable(option: (typeof TABLES)[number]) {
-    const newItem: FloorItem = {
-      key: newKey(),
-      kind: "mesa",
-      codigo: nextTableCode(state.items),
-      capacidad: option.capacidad,
-      forma: option.forma,
-      estado: "LIBRE",
-      ...center(option.ancho, option.alto),
-    };
-    dispatch({ type: "add", item: newItem });
-    dispatch({ type: "select", key: newItem.key });
-  }
-
-  function addElement(option: (typeof ELEMENTS)[number]) {
-    const newItem: FloorItem = {
-      key: newKey(),
-      kind: "elemento",
-      tipo: option.tipo,
-      etiqueta: option.tipo === "TEXTO" ? "Texto" : null,
-      capa: 0,
-      ...center(option.ancho, option.alto),
-    };
-    dispatch({ type: "add", item: newItem });
-    dispatch({ type: "select", key: newItem.key });
-  }
-
+/** Paleta de Herramientas (Panel Izquierdo): Mesas y Elementos interactivos por arrastre exclusivamente */
+export function ToolPalette() {
   return (
     <aside
-      className="flex flex-col gap-3 rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs"
+      className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs"
       aria-label="Herramientas del salón"
     >
       {/* SECCIÓN 1: MESAS */}
       <div>
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2.5 flex items-center justify-between">
           <h4 className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">Mesas</h4>
-          <span className="text-[10px] font-semibold text-azul">Arrastrar</span>
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-azul">
+            <Icon name="arrastrar" className="h-3 w-3" />
+            Arrastrar
+          </span>
         </div>
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="flex flex-col gap-1.5">
           {TABLES.map((t) => (
-            <button
+            <div
               key={t.forma}
-              type="button"
               draggable={true}
               onDragStart={(event) => {
                 event.dataTransfer.setData(
@@ -134,41 +91,40 @@ export function ToolPalette({
                 );
                 event.dataTransfer.effectAllowed = "copy";
               }}
-              onClick={() => addTable(t)}
-              title="Arrastra al plano o haz clic para agregar"
-              className="flex min-h-[44px] cursor-grab items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 text-left transition-all hover:border-azul hover:bg-azul/5 active:cursor-grabbing active:scale-[0.98]"
+              title="Arrastra esta mesa hacia el plano"
+              className="group flex cursor-grab select-none items-center gap-2.5 rounded-xl border border-slate-200/90 bg-white px-2.5 py-2 transition-all hover:border-azul hover:bg-azul/5 hover:shadow-xs active:cursor-grabbing active:scale-[0.99]"
             >
-              <span
-                className={`shrink-0 border-2 border-azul ${
-                  t.forma === "REDONDA"
-                    ? "h-4 w-4 rounded-full"
-                    : t.forma === "RECTANGULAR"
-                    ? "h-3.5 w-6 rounded-xs"
-                    : "h-4 w-4 rounded-xs"
-                }`}
-              />
+              <TablePreview forma={t.forma} />
               <div className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-bold text-tinta">{t.label}</span>
-                <span className="block text-[10px] font-medium text-slate-400 tabular-nums">
+                <span className="block text-xs font-bold text-tinta group-hover:text-azul transition-colors">
+                  {t.label}
+                </span>
+                <span className="block text-[11px] font-medium text-slate-400 tabular-nums">
                   {t.sub}
                 </span>
               </div>
-            </button>
+              <Icon
+                name="arrastrar"
+                className="h-3.5 w-3.5 shrink-0 text-slate-300 group-hover:text-azul transition-colors"
+              />
+            </div>
           ))}
         </div>
       </div>
 
       {/* SECCIÓN 2: ELEMENTOS ARQUITECTÓNICOS */}
-      <div className="border-t border-slate-100 pt-2.5">
-        <div className="mb-2 flex items-center justify-between">
+      <div className="border-t border-slate-100 pt-3">
+        <div className="mb-2.5 flex items-center justify-between">
           <h4 className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">Elementos</h4>
-          <span className="text-[10px] font-semibold text-azul">Arrastrar</span>
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-azul">
+            <Icon name="arrastrar" className="h-3 w-3" />
+            Arrastrar
+          </span>
         </div>
         <div className="grid grid-cols-2 gap-1.5">
           {ELEMENTS.map((elem) => (
-            <button
+            <div
               key={elem.tipo}
-              type="button"
               draggable={true}
               onDragStart={(event) => {
                 event.dataTransfer.setData(
@@ -182,18 +138,144 @@ export function ToolPalette({
                 );
                 event.dataTransfer.effectAllowed = "copy";
               }}
-              onClick={() => addElement(elem)}
-              title="Arrastra al plano o haz clic para agregar"
-              className="flex min-h-[40px] cursor-grab items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left transition-all hover:border-azul hover:bg-azul/5 active:cursor-grabbing active:scale-[0.98]"
+              title={`Arrastra ${elem.label} hacia el plano`}
+              className="group flex min-h-[40px] cursor-grab select-none items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 transition-all hover:border-azul hover:bg-azul/5 hover:shadow-xs active:cursor-grabbing active:scale-[0.99]"
             >
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
-              <span className="truncate text-xs font-bold text-tinta">{elem.label}</span>
-            </button>
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-slate-50 group-hover:bg-white transition-colors">
+                <ElementIcon tipo={elem.tipo} />
+              </div>
+              <span className="truncate text-xs font-bold text-tinta group-hover:text-azul transition-colors">
+                {elem.label}
+              </span>
+            </div>
           ))}
         </div>
       </div>
     </aside>
   );
+}
+
+/** Previsualización SVG lúcida de mesas con sillas para la paleta lateral */
+function TablePreview({ forma }: { forma: TableShape }) {
+  if (forma === "CUADRADA") {
+    return (
+      <svg viewBox="0 0 34 34" className="h-8 w-8 shrink-0" fill="none" aria-hidden="true">
+        <rect x="9" y="9" width="16" height="16" rx="2.5" fill="#ffffff" stroke="#0c5ea7" strokeWidth="1.8" />
+        <rect x="12" y="3" width="10" height="4" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+        <rect x="12" y="27" width="10" height="4" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+        <rect x="3" y="12" width="4" height="10" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+        <rect x="27" y="12" width="4" height="10" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+      </svg>
+    );
+  }
+  if (forma === "REDONDA") {
+    return (
+      <svg viewBox="0 0 34 34" className="h-8 w-8 shrink-0" fill="none" aria-hidden="true">
+        <circle cx="17" cy="17" r="8.5" fill="#ffffff" stroke="#0c5ea7" strokeWidth="1.8" />
+        <rect x="12" y="3" width="10" height="4" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+        <rect x="12" y="27" width="10" height="4" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 42 34" className="h-8 w-10 shrink-0" fill="none" aria-hidden="true">
+      <rect x="8" y="9" width="26" height="16" rx="2.5" fill="#ffffff" stroke="#0c5ea7" strokeWidth="1.8" />
+      <rect x="11" y="3" width="8" height="4" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+      <rect x="23" y="3" width="8" height="4" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+      <rect x="11" y="27" width="8" height="4" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+      <rect x="23" y="27" width="8" height="4" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+      <rect x="2" y="13" width="4" height="8" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+      <rect x="36" y="13" width="4" height="8" rx="1.5" fill="#f8fafc" stroke="#0c5ea7" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+/** Iconos SVG arquitectónicos lúcidos para cada elemento de la paleta */
+function ElementIcon({ tipo }: { tipo: ElementType }) {
+  switch (tipo) {
+  case "BARRA":
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 text-sky-600" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="2" y="5" width="16" height="4" rx="1" fill="currentColor" fillOpacity="0.2" />
+        <circle cx="5.5" cy="14" r="2" fill="currentColor" fillOpacity="0.2" />
+        <circle cx="14.5" cy="14" r="2" fill="currentColor" fillOpacity="0.2" />
+        <path d="M5.5 12V9M14.5 12V9" />
+      </svg>
+    );
+  case "PARED":
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 text-slate-700" fill="currentColor" aria-hidden="true">
+        <rect x="2" y="6" width="16" height="8" rx="1.5" />
+        <line x1="2" y1="10" x2="18" y2="10" stroke="#fff" strokeWidth="1" />
+        <line x1="7" y1="6" x2="7" y2="10" stroke="#fff" strokeWidth="1" />
+        <line x1="13" y1="6" x2="13" y2="10" stroke="#fff" strokeWidth="1" />
+        <line x1="10" y1="10" x2="10" y2="14" stroke="#fff" strokeWidth="1" />
+      </svg>
+    );
+  case "PUERTA":
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 16V4" strokeWidth="2" />
+        <path d="M4 16A12 12 0 0 1 16 4" strokeDasharray="2.5 2" />
+        <circle cx="4" cy="16" r="1.5" fill="currentColor" />
+      </svg>
+    );
+  case "VENTANA":
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 text-sky-500" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="14" height="14" rx="1.5" fill="currentColor" fillOpacity="0.15" />
+        <line x1="10" y1="3" x2="10" y2="17" />
+        <line x1="3" y1="10" x2="17" y2="10" />
+      </svg>
+    );
+  case "COLUMNA":
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <rect x="4" y="4" width="12" height="12" rx="1.5" fill="currentColor" fillOpacity="0.15" />
+        <line x1="4" y1="4" x2="16" y2="16" />
+        <line x1="16" y1="4" x2="4" y2="16" />
+      </svg>
+    );
+  case "PLANTA":
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="10" cy="10" r="7" fill="currentColor" fillOpacity="0.15" />
+        <circle cx="10" cy="10" r="2.5" fill="currentColor" />
+        <path d="M10 3v4M10 13v4M3 10h4M13 10h4" strokeWidth="1.4" />
+      </svg>
+    );
+  case "BANO":
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 text-indigo-600" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="14" height="14" rx="2" fill="currentColor" fillOpacity="0.1" />
+        <text x="10" y="11" textAnchor="middle" dominantBaseline="central" fill="currentColor" fontSize="8" fontWeight="bold" stroke="none">WC</text>
+      </svg>
+    );
+  case "CAJA":
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="14" height="12" rx="2" fill="currentColor" fillOpacity="0.1" />
+        <rect x="5.5" y="6.5" width="9" height="4" rx="0.5" fill="currentColor" fillOpacity="0.2" />
+        <line x1="6" y1="13" x2="8.5" y2="13" />
+        <line x1="10.5" y1="13" x2="14" y2="13" />
+      </svg>
+    );
+  case "COCINA":
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="14" height="12" rx="2" fill="currentColor" fillOpacity="0.1" />
+        <circle cx="7.5" cy="10" r="2.5" fill="currentColor" fillOpacity="0.2" />
+        <circle cx="12.5" cy="10" r="2.5" fill="currentColor" fillOpacity="0.2" />
+      </svg>
+    );
+  case "TEXTO":
+  default:
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 text-slate-700" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 5h12M10 5v11M7 16h6" />
+      </svg>
+    );
+  }
 }
 
 /** Tarjeta de Propiedades del Objeto Seleccionado (Panel Derecho) */
@@ -237,7 +319,7 @@ export function ItemPropertiesCard({
 
   return (
     <div
-      className="flex flex-col gap-3 rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs"
+      className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs"
       aria-label="Propiedades del elemento"
     >
       <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
@@ -439,14 +521,32 @@ export function RoomDimensionsCard({
   height: number;
   dispatch: (action: EditorAction) => void;
 }) {
+  const PRESETS = [
+    { label: "800×600", w: 800, h: 600 },
+    { label: "1000×700", w: 1000, h: 700 },
+    { label: "1200×800", w: 1200, h: 800 },
+    { label: "1400×900", w: 1400, h: 900 },
+  ];
+
   return (
     <div
-      className="flex flex-col gap-2.5 rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs"
+      className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs"
       aria-label="Dimensiones del salón"
     >
-      <h4 className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-        Dimensiones del salón
-      </h4>
+      <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+        <div className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-sky-50 text-azul">
+            <Icon name="cuadricula" className="h-3.5 w-3.5" />
+          </div>
+          <h4 className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+            Dimensiones del salón
+          </h4>
+        </div>
+        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 tabular-nums">
+          {width} × {height}
+        </span>
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <NumberField
           label="Ancho"
@@ -463,8 +563,36 @@ export function RoomDimensionsCard({
           onCommit={(h) => dispatch({ type: "resize-room", width, height: h })}
         />
       </div>
-      <p className="text-[11px] leading-relaxed font-medium text-slate-400">
-        Unidades del plano en pixeles virtuales. Se escala automáticamente.
+
+      {/* Botones de tamaño preestablecido */}
+      <div>
+        <span className="mb-1.5 block text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+          Tamaños estándar
+        </span>
+        <div className="grid grid-cols-2 gap-1.5">
+          {PRESETS.map((p) => {
+            const active = width === p.w && height === p.h;
+            return (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => dispatch({ type: "resize-room", width: p.w, height: p.h })}
+                className={`rounded-lg border px-2 py-1 text-center text-[11px] font-bold tabular-nums transition-all ${
+                  active
+                    ? "border-azul bg-azul/10 text-azul shadow-2xs"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <p className="flex items-center gap-1.5 text-[11px] leading-relaxed font-medium text-slate-400">
+        <span>💡</span>
+        <span>El salón se adapta automáticamente al monitor o tablet.</span>
       </p>
     </div>
   );
@@ -479,11 +607,11 @@ export function PropertiesPanel({ state, item, error, dispatch }: Props) {
   return (
     <div className="flex flex-col gap-3">
       {item ? (
-        <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50/70 p-1">
+        <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50/70 p-1">
           <button
             type="button"
             onClick={() => setActiveTab("properties")}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-bold transition-all ${
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-bold transition-all ${
               activeTab === "properties" ? "bg-white text-azul shadow-xs" : "text-slate-500 hover:text-azul"
             }`}
           >
@@ -492,7 +620,7 @@ export function PropertiesPanel({ state, item, error, dispatch }: Props) {
           <button
             type="button"
             onClick={() => setActiveTab("palette")}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-bold transition-all ${
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-bold transition-all ${
               activeTab === "palette" ? "bg-white text-azul shadow-xs" : "text-slate-500 hover:text-azul"
             }`}
           >
@@ -505,7 +633,7 @@ export function PropertiesPanel({ state, item, error, dispatch }: Props) {
       {item && showProperties ? (
         <ItemPropertiesCard state={state} item={item} error={error} dispatch={dispatch} />
       ) : (
-        <ToolPalette state={state} dispatch={dispatch} />
+        <ToolPalette />
       )}
     </div>
   );
@@ -536,17 +664,22 @@ function NumberField({
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-bold text-tinta">{label}</span>
-      <Input
-        key={value}
-        type="number"
-        inputMode="numeric"
-        defaultValue={Math.round(value)}
-        min={min}
-        max={max}
-        onBlur={(event) => commit(event.currentTarget)}
-        onKeyDown={(event) => event.key === "Enter" && commit(event.currentTarget)}
-        className="h-9 rounded-lg text-sm tabular-nums"
-      />
+      <div className="relative">
+        <Input
+          key={value}
+          type="number"
+          inputMode="numeric"
+          defaultValue={Math.round(value)}
+          min={min}
+          max={max}
+          onBlur={(event) => commit(event.currentTarget)}
+          onKeyDown={(event) => event.key === "Enter" && commit(event.currentTarget)}
+          className="h-9 rounded-xl pr-7 text-sm font-semibold tabular-nums"
+        />
+        <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-[11px] font-semibold text-slate-400">
+          px
+        </span>
+      </div>
     </label>
   );
 }

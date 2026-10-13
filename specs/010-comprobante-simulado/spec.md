@@ -22,7 +22,7 @@ El piloto quiere ver su boleta o factura al cobrar. Antes de integrar Greenter (
 
 ## Después: Greenter
 
-La integración real vive en la [spec 011](../011-facturacion-greenter/spec.md), pendiente de diseño. Esta spec deja el enganche y documenta en `backend.md` (*Preparación para Greenter*) qué cumple ya y qué se agrega después.
+La integración real vive en la [spec 017](../017-facturacion-greenter/spec.md), pendiente de diseño. Esta spec deja el enganche y documenta en `backend.md` (*Preparación para Greenter*) qué cumple ya y qué se agrega después.
 
 ## Fuera de alcance
 

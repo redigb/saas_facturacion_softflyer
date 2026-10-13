@@ -11,12 +11,26 @@
   --color-tinta: #0b2a4a;
   --color-niebla: #f3f8fc;
 
-  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-montserrat), "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-montserrat), "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
 body {
   background: var(--color-niebla);
   color: var(--color-tinta);
+}
+
+/* Tipografía oficial Montserrat aplicada a todos los textos SVG (plano arquitectónico y canvas) */
+svg text {
+  font-family: var(--font-montserrat), "Montserrat", sans-serif !important;
 }
 
 /* Personalización de react-toastify con tokens de Softflyer UI */

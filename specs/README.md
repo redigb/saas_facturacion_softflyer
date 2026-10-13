@@ -44,6 +44,26 @@ Para crear una nueva, copia [`_plantilla/`](_plantilla/) con el siguiente númer
 | [008-tiempo-real-eficiente](008-tiempo-real-eficiente/spec.md) | H1 | ✅ | ✅ | Cerrada |
 | [009-caja-cobro](009-caja-cobro/spec.md) | H2 | ✅ | ✅ | Cerrada |
 | [010-comprobante-simulado](010-comprobante-simulado/spec.md) | H3 (parcial) | ✅ | ✅ | Cerrada |
-| [011-facturacion-greenter](011-facturacion-greenter/spec.md) | H3 | ⚪ | ⚪ | Pendiente de diseño |
+| [011-empresa-sucursales](011-empresa-sucursales/spec.md) | Config | ✅ | ✅ | Cerrada |
+| 012-caja-series-cobro | Config | ⚪ | ⚪ | Planificada |
+| 013-accesos-perfil | Config | ⚪ | ⚪ | Planificada |
+| 014-inventario-simple | H4a | ⚪ | ⚪ | Planificada |
+| 015-ventas-reportes | Config | ⚪ | ⚪ | Planificada |
+| 016-preview-sistema | Cierre | ⚪ | ⚪ | Planificada |
+| [017-facturacion-greenter](017-facturacion-greenter/spec.md) | H3 | ⚪ | ⚪ | Pendiente de diseño |
 
-Siguientes (sin abrir todavía): 011 (Greenter y SUNAT, pendiente de diseño), H4a inventario simple.
+## Hoja de ruta: configuración general y preview
+
+Objetivo: un sistema completo para mostrar al cliente, con **solo la facturación real (Greenter) pendiente**. Las specs 012–016 no tienen carpeta hasta que se abren (una a la vez).
+
+| Spec | Entrega |
+|---|---|
+| 011 empresa y sucursales | `/panel/configuracion`: datos fiscales (RUC válido, razón social, dirección) y alta/edición de sucursales con su principal; respeta los límites del plan |
+| 012 caja, series y cobro | Gestión de cajas y de series de comprobantes; métodos de pago activos por local; opciones de cobro |
+| 013 accesos y perfil | Matriz de roles y permisos; "Mi perfil" (contraseña y PIN propio) |
+| 014 inventario simple | Stock por producto, ajustes y movimientos, descuento al cobrar, alerta de stock bajo, pantalla Inventario |
+| 015 ventas y reportes | "Hoy en tu local" real, historial de ventas y comprobantes, resúmenes por método, mozo y plato |
+| 016 preview del sistema | Datos de demostración coherentes (ventas, turnos, comprobantes, stock), checklist del Inicio actualizado, recorrido guiado, QA de punta a punta |
+| 017 facturación Greenter | Emisión real a SUNAT; pendiente de diseño (decisiones abiertas en su `spec.md`) |
+
+Orden: 011 → 012 → 014 → 015 → 016, con 013 intercalable. La 017 queda al final.

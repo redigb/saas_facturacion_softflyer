@@ -37,7 +37,7 @@ export const NAVIGATION: NavSection[] = [
     title: "Administración",
     items: [
       { label: "Equipo", icon: "equipo", href: "/panel/equipo", permisos: ["usuarios.editar"] },
-      { label: "Configuración", icon: "configuracion", permisos: ["configuracion.empresa"] },
+      { label: "Configuración", icon: "configuracion", href: "/panel/configuracion", permisos: ["configuracion.empresa", "configuracion.sucursales"] },
     ],
   },
 ];

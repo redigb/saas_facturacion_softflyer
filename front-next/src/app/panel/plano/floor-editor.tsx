@@ -271,14 +271,14 @@ function PlanEditor({ plan, canEdit, onDirtyChange }: { plan: Plan; canEdit: boo
       )}
 
       <div
-        className={`mt-2 gap-3 ${
-          editable ? "xl:grid xl:grid-cols-[210px_1fr_210px] 2xl:grid-cols-[230px_1fr_230px] items-start" : ""
+        className={`mt-2 gap-3.5 ${
+          editable ? "xl:grid xl:grid-cols-[240px_1fr_240px] 2xl:grid-cols-[260px_1fr_260px] items-start" : ""
         }`}
       >
         {editable && (
           /* COLUMNA 1 (IZQUIERDA): Paleta compacta de Mesas y Elementos */
           <div className="xl:sticky xl:top-24">
-            <ToolPalette state={state} dispatch={dispatch} />
+            <ToolPalette />
           </div>
         )}
 
@@ -308,16 +308,21 @@ function PlanEditor({ plan, canEdit, onDirtyChange }: { plan: Plan; canEdit: boo
             {dirty ? (
               <div
                 role="status"
-                className="flex flex-col gap-2.5 rounded-xl border border-amber-200/90 bg-amber-50/90 p-3 shadow-2xs animate-in fade-in slide-in-from-top-2"
+                className="flex flex-col gap-2.5 rounded-2xl border border-amber-200/90 bg-amber-50/90 p-3.5 shadow-2xs animate-in fade-in slide-in-from-top-2"
               >
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2 shrink-0">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
-                  </span>
-                  <span className="text-xs font-bold text-amber-950">
-                    Cambios sin guardar
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+                    </span>
+                    <span className="text-xs font-bold text-amber-950">
+                      Cambios sin guardar
+                    </span>
+                  </div>
+                  <kbd className="inline-flex items-center justify-center rounded-md border border-amber-200/90 bg-amber-100/60 px-1.5 py-0.5 font-mono text-[10px] font-bold text-amber-900 shadow-2xs">
+                    Ctrl + S
+                  </kbd>
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   <Button
@@ -325,7 +330,7 @@ function PlanEditor({ plan, canEdit, onDirtyChange }: { plan: Plan; canEdit: boo
                     size="sm"
                     onClick={() => dispatch({ type: "undo" })}
                     disabled={state.past.length === 0}
-                    className="w-full text-xs"
+                    className="w-full text-xs font-bold"
                   >
                     Deshacer
                   </Button>
@@ -333,7 +338,7 @@ function PlanEditor({ plan, canEdit, onDirtyChange }: { plan: Plan; canEdit: boo
                     size="sm"
                     onClick={() => void onSave()}
                     isLoading={save.isPending}
-                    className="w-full text-xs"
+                    className="w-full text-xs font-bold"
                   >
                     {save.isPending ? "Guardando…" : "Guardar"}
                   </Button>
@@ -360,26 +365,62 @@ function PlanEditor({ plan, canEdit, onDirtyChange }: { plan: Plan; canEdit: boo
 
             {/* Atajos de teclado cuando no hay un elemento seleccionado */}
             {!selected && (
-              <div className="rounded-xl border border-slate-200/90 bg-white p-3 text-xs shadow-2xs">
-                <h4 className="mb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                  Atajos rápidos
-                </h4>
-                <ul className="space-y-1.5 text-slate-500">
-                  <li className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium">Mover</span>
-                    <kbd className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 text-[10px] font-bold text-slate-600">Flechas</kbd>
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 text-xs shadow-2xs">
+                <div className="mb-2.5 flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+                      <Icon name="calendario" className="h-3 w-3" />
+                    </div>
+                    <h4 className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                      Atajos rápidos
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-400">Teclado</span>
+                </div>
+                <ul className="space-y-1.5 text-slate-600">
+                  <li className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] font-semibold text-slate-600">Mover</span>
+                    <kbd className="inline-flex items-center justify-center rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 shadow-2xs">Flechas</kbd>
                   </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium">Duplicar</span>
-                    <kbd className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 text-[10px] font-bold text-slate-600">Ctrl + D</kbd>
+                  <li className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] font-semibold text-slate-600">Ajuste fino (1px)</span>
+                    <span className="inline-flex items-center gap-1">
+                      <kbd className="inline-flex items-center justify-center rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 shadow-2xs">Shift</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="inline-flex items-center justify-center rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 shadow-2xs">Flechas</kbd>
+                    </span>
                   </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium">Deshacer</span>
-                    <kbd className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 text-[10px] font-bold text-slate-600">Ctrl + Z</kbd>
+                  <li className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] font-semibold text-slate-600">Girar 90°</span>
+                    <kbd className="inline-flex items-center justify-center min-w-[20px] rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-azul shadow-2xs">R</kbd>
                   </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium">Eliminar</span>
-                    <kbd className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 text-[10px] font-bold text-red-600">Supr</kbd>
+                  <li className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] font-semibold text-slate-600">Duplicar</span>
+                    <span className="inline-flex items-center gap-1">
+                      <kbd className="inline-flex items-center justify-center rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 shadow-2xs">Ctrl</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="inline-flex items-center justify-center min-w-[18px] rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 shadow-2xs">D</kbd>
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] font-semibold text-slate-600">Deshacer</span>
+                    <span className="inline-flex items-center gap-1">
+                      <kbd className="inline-flex items-center justify-center rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 shadow-2xs">Ctrl</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="inline-flex items-center justify-center min-w-[18px] rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 shadow-2xs">Z</kbd>
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] font-semibold text-slate-600">Guardar</span>
+                    <span className="inline-flex items-center gap-1">
+                      <kbd className="inline-flex items-center justify-center rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 shadow-2xs">Ctrl</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="inline-flex items-center justify-center min-w-[18px] rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 shadow-2xs">S</kbd>
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] font-semibold text-slate-600">Eliminar</span>
+                    <kbd className="inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-red-600 shadow-2xs">Supr</kbd>
                   </li>
                 </ul>
               </div>
@@ -441,6 +482,22 @@ function useKeyboard(state: EditorState, dispatch: (action: Parameters<typeof re
         } else if (ctrl && event.key.toLowerCase() === "d") {
           event.preventDefault();
           dispatch({ type: "duplicate", key: item.key });
+        } else if (!ctrl && event.key.toLowerCase() === "r") {
+          event.preventDefault();
+          const oldW = item.ancho;
+          const oldH = item.alto;
+          const newW = oldH;
+          const newH = oldW;
+          const cx = item.pos_x + oldW / 2;
+          const cy = item.pos_y + oldH / 2;
+          const newX = Math.max(0, Math.min(state.width - newW, snap(cx - newW / 2)));
+          const newY = Math.max(0, Math.min(state.height - newH, snap(cy - newH / 2)));
+          dispatch({
+            type: "update",
+            key: item.key,
+            record: true,
+            patch: { ancho: newW, alto: newH, pos_x: newX, pos_y: newY },
+          });
         } else if (event.key === "Escape") {
           dispatch({ type: "select", key: null });
         }

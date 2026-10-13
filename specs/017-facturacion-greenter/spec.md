@@ -1,6 +1,6 @@
-# 011 — Facturación electrónica con Greenter
+# 017 — Facturación electrónica con Greenter
 
-**Estado:** ⚪ Pendiente de diseño (no se abre hasta cerrar la 010 y resolver las decisiones abiertas)
+**Estado:** ⚪ Pendiente de diseño (va al final de la hoja de ruta, después de la 016; no se abre hasta resolver las decisiones abiertas)
 **Backend:** ⚪ · **Frontend:** ⚪
 **Hito:** H3 real (Doc. 09 §2) — cumple el objetivo 2 del cliente: "no facturar a mano"
 **Documentos:** Doc. 04 (todo), Doc. 08 §11 (comprobantes, series, resúmenes), Doc. 06 §9 (seguridad de la integración)

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 import { Icon, type IconName } from "@/components/icons";
 import restaurante from "../../../public/login-restaurante.jpg";
@@ -20,7 +21,7 @@ export type DashboardSummary = {
     "sucursales" | "salones" | "mesas" | "asientos" | "categorias" | "productos" | "estaciones" | "usuarios" | "series" | "certificados",
     number
   >;
-  configuracion: { clave: string; titulo: string; descripcion: string; completo: boolean }[];
+  configuracion: { clave: string; titulo: string; descripcion: string; completo: boolean; ruta: string | null }[];
 };
 
 const STEP_ICONS: Record<string, IconName> = {
@@ -200,13 +201,22 @@ function SetupChecklist({ steps, title = "Pon a punto tu restaurante" }: { steps
               </p>
               <p className="text-sm text-slate-500">{step.descripcion}</p>
             </div>
-            <span
-              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
-                step.completo ? "bg-emerald-50 text-emerald-700" : "bg-niebla text-slate-500"
-              }`}
-            >
-              {step.completo ? "Listo" : "Pendiente"}
-            </span>
+            {step.ruta && !step.completo ? (
+              <Link
+                href={step.ruta}
+                className="shrink-0 rounded-full bg-azul px-3.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-azul-oscuro"
+              >
+                Completar
+              </Link>
+            ) : (
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
+                  step.completo ? "bg-emerald-50 text-emerald-700" : "bg-niebla text-slate-500"
+                }`}
+              >
+                {step.completo ? "Listo" : step.ruta ? "Pendiente" : "Próximamente"}
+              </span>
+            )}
           </li>
         ))}
       </ol>

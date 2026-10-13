@@ -2,6 +2,7 @@
 
 namespace App\Core\Tenancy\Infrastructure;
 
+use App\Core\Cash\Application\OpenCashSessionsActivity;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\ServiceProvider;
 
@@ -10,6 +11,9 @@ class TenancyServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(TenantContext::class);
+
+        // Quien tenga trabajo en curso en una sucursal se declara aquí (spec 011).
+        $this->app->tag([OpenCashSessionsActivity::class], 'branch.activity');
     }
 
     public function boot(): void

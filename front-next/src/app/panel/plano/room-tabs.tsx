@@ -13,64 +13,76 @@ type Props = {
 };
 
 /**
- * Pestañas de salones con diseño segmentado moderno y ergonómico.
+ * Pestañas de salones con diseño ergonómico, estilizado y unificado.
  */
 export function RoomTabs({ rooms, current, canEdit, onSelect, onCreate, onEdit }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1 touch-pan-x">
-      {/* Contenedor segmentado de salones */}
-      <div className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200/80 bg-slate-100/90 p-1.5 shadow-2xs">
-        {rooms.map((room) => {
-          const active = room.id === current;
+      {rooms.map((room) => {
+        const active = room.id === current;
+        if (active) {
           return (
             <div
               key={room.id}
-              className={`flex min-h-[40px] items-center rounded-xl transition-all duration-150 ${
-                active
-                  ? "bg-azul text-white shadow-xs font-bold"
-                  : "text-slate-600 hover:bg-white/80 hover:text-tinta font-medium"
-              }`}
+              className="flex h-10 items-center gap-2 rounded-xl bg-azul pl-3.5 pr-2 font-bold text-white shadow-xs"
             >
               <button
                 type="button"
                 onClick={() => onSelect(room.id)}
-                aria-pressed={active}
-                className="flex items-center gap-2.5 px-3.5 py-2 text-sm select-none"
+                aria-pressed={true}
+                className="flex items-center gap-2 select-none"
               >
                 <span className={room.es_activo ? "" : "line-through opacity-70"}>
                   {room.nombre}
                 </span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs tabular-nums font-bold ${
-                    active ? "bg-white/20 text-white" : "bg-white text-slate-600 shadow-2xs"
-                  }`}
-                >
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/20 px-1.5 text-xs font-bold tabular-nums text-white">
                   {room.mesas_count}
                 </span>
               </button>
 
-              {canEdit && active && (
+              {canEdit && (
                 <button
                   type="button"
                   onClick={() => onEdit(room)}
                   aria-label={`Configurar ${room.nombre}`}
                   title="Configurar salón"
-                  className="mr-1.5 flex h-7 w-7 items-center justify-center rounded-lg border-l border-white/20 pl-2 pr-1 text-white/80 hover:bg-white/15 hover:text-white transition-colors"
+                  className="flex h-6 w-6 items-center justify-center rounded-md bg-white/15 text-white transition-colors hover:bg-white/30"
                 >
-                  <Icon name="editar" className="h-3.5 w-3.5" />
+                  <Icon name="editar" className="h-3 w-3" />
                 </button>
               )}
             </div>
           );
-        })}
-      </div>
+        }
+
+        return (
+          <div
+            key={room.id}
+            className="flex h-10 items-center rounded-xl border border-slate-200/90 bg-white px-3.5 font-semibold text-slate-700 shadow-2xs transition-colors hover:border-slate-300 hover:bg-slate-50/80 hover:text-azul"
+          >
+            <button
+              type="button"
+              onClick={() => onSelect(room.id)}
+              aria-pressed={false}
+              className="flex items-center gap-2 select-none"
+            >
+              <span className={room.es_activo ? "" : "line-through opacity-70"}>
+                {room.nombre}
+              </span>
+              <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full border border-slate-200/60 bg-slate-100 px-1.5 text-xs font-bold tabular-nums text-slate-600">
+                {room.mesas_count}
+              </span>
+            </button>
+          </div>
+        );
+      })}
 
       {/* Botón para crear nuevo salón */}
       {canEdit && (
         <button
           type="button"
           onClick={onCreate}
-          className="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-xl border border-dashed border-azul/50 bg-white px-3.5 py-2 text-sm font-bold text-azul shadow-2xs transition-all hover:bg-azul/5 hover:border-azul active:scale-[0.98]"
+          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-dashed border-azul/60 bg-white px-3.5 text-sm font-bold text-azul shadow-2xs transition-all hover:border-azul hover:bg-azul/5 active:scale-[0.98]"
         >
           <Icon name="mas" className="h-4 w-4" />
           <span>Salón</span>

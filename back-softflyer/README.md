@@ -146,10 +146,8 @@ php artisan test
 
 Usa la base `factura_softfly_test` con RLS real. Una spec no se cierra con pruebas en rojo.
 
-Las pruebas de aislamiento exigen que la API se conecte como `softflyer_app` (sin superusuario ni `BYPASSRLS`). Si tu `.env` usa `DB_USERNAME=postgres`, cinco pruebas de RLS fallan a propósito; córrelas así:
+La suite se conecta como `softflyer_app` (sin superusuario ni `BYPASSRLS`) porque `phpunit.xml` fija `DB_USERNAME`; así RLS aplica igual que en producción aunque tu `.env` use `postgres` para desarrollo. Si tu rol `softflyer_app` tiene contraseña, expórtala antes: `DB_PASSWORD=... php artisan test`.
 
-```bash
-DB_USERNAME=softflyer_app php artisan test
-```
+**No uses `migrate:fresh` para probar migraciones:** apunta a la base de desarrollo. `php artisan test` ya migra `factura_softfly_test` por su cuenta.
 
 Las pruebas usan el driver de broadcasting `null`, así que no necesitan Reverb corriendo.

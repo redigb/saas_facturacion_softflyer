@@ -89,6 +89,17 @@ final class GetDashboardSummary
             ['sunat', 'Emisión en producción', 'Completa la homologación ante SUNAT para emitir comprobantes reales.', (bool) $company?->homologado],
         ];
 
-        return array_map(fn (array $step) => array_combine(['clave', 'titulo', 'descripcion', 'completo'], $step), $steps);
+        // Pantalla donde se completa cada paso; nula = llega con la facturación real (spec 017).
+        $routes = [
+            'datos_fiscales' => '/panel/configuracion',
+            'plano' => '/panel/plano',
+            'carta' => '/panel/carta',
+            'equipo' => '/panel/equipo',
+        ];
+
+        return array_map(
+            fn (array $step) => array_combine(['clave', 'titulo', 'descripcion', 'completo'], $step) + ['ruta' => $routes[$step[0]] ?? null],
+            $steps,
+        );
     }
 }
