@@ -76,6 +76,8 @@ Base `/api/v1`, subdominio, `Authorization: Bearer`, middleware `inquilino`, `au
 | 409 | `DETALLE_YA_ANULADO` | Anular dos veces el mismo plato |
 | 422 | `VALIDACION` | Producto inactivo, modificadores que no cumplen el grupo, motivo vacío… |
 
+> **Actualización (spec 025):** enviar a cocina, pedir cuenta, reabrir y anular exigen ser el mozo dueño del pedido o jefatura (`panel.ver` / `restaurante.mesas.gestionar`); si no, **403 `PEDIDO_AJENO`** con `detalles.mozo`.
+
 ### Eventos en tiempo real (spec 005)
 
 | Evento | Canal | Cuerpo |

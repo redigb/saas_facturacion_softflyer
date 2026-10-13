@@ -51,6 +51,12 @@ class KitchenController
         return $this->respond($request->user(), $this->board->ticketReady($request->user(), $ticket));
     }
 
+    /** La comanda salió del diálogo de impresión del navegador (spec 027). */
+    public function printed(Request $request, KitchenTicket $ticket): JsonResponse
+    {
+        return response()->json(['data' => $this->ticket($this->board->markPrinted($request->user(), $ticket))]);
+    }
+
     /** @param array{ticket: KitchenTicket, order: Order, ready: list<OrderItem>} $result */
     private function respond(User $user, array $result): JsonResponse
     {
@@ -85,6 +91,7 @@ class KitchenController
             'estacion_preparacion_id' => $ticket->estacion_preparacion_id,
             'enviada_en' => $ticket->enviada_en->utc()->toIso8601ZuluString(),
             'enviada_por' => $ticket->sender?->nombre,
+            'impresa_en' => $ticket->impresa_en?->utc()->toIso8601ZuluString(),
             'completa' => ! $live->contains(fn (OrderItem $item) => in_array($item->estado_cocina, ['PENDIENTE', 'EN_PREPARACION'], true)),
             'pedido' => [
                 'id' => $ticket->order->id,

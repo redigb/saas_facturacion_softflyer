@@ -84,6 +84,7 @@ Entrada (POST/PATCH):
 
 - `precio_venta` viaja como **string** decimal: nunca como float.
 - `estacion_efectiva_id` = la del producto o, si es nula, la de su categoría. El KDS de H1 usa este campo.
+- **Actualización (spec 023):** el producto incluye además `imagen_url` (nullable) y gana `POST/DELETE /productos/{id}/imagen` para la foto del plato (subida multipart, borra la anterior al reemplazar).
 
 ### Grupo de modificadores
 
@@ -124,6 +125,7 @@ Regla: `seleccion_maxima ≥ 1` y `seleccion_minima ≤ seleccion_maxima` (adem�
 ```
 
 - Solo productos `es_activo` y `es_vendible`, categorías activas y modificadores activos.
+- **Actualización (spec 020):** cada producto incluye también `descripcion` (nullable, ≤ 255), para mostrarla en las tarjetas del mozo.
 - Forma **normalizada** (listas por id): el cliente arma la vista sin duplicar datos.
 - `version` = el `actualizado_en` más reciente de la carta: el cliente la usa para saber si su copia está vieja. Responde con `ETag` y acepta `If-None-Match` → 304.
 

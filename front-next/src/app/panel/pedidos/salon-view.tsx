@@ -1,16 +1,18 @@
 "use client";
 
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 
 import { Skeleton } from "@/app/panel/carta/ui";
-import { useActiveOrders, useOpenOrder } from "@/app/panel/pedidos/queries";
+import { useActiveOrders, useOpenOrder, useOrderAction } from "@/app/panel/pedidos/queries";
+import { SalonFloor } from "@/app/panel/pedidos/salon-floor";
 import { minutesSince, useNow } from "@/app/panel/pedidos/use-now";
 import { fetchPlan, keys as floorKeys, useRooms } from "@/app/panel/plano/queries";
 import { useToast } from "@/app/panel/providers";
+import { useRealtimeEvent } from "@/app/panel/realtime";
 import { Icon } from "@/components/icons";
-import { Button, EmptyState } from "@/components/ui";
+import { Button, ConfirmDialog, EmptyState } from "@/components/ui";
 import { ApiRequestError } from "@/lib/browser-api";
 import type { OrderSummary } from "@/lib/schemas/pedidos";
 import type { PlanTable } from "@/lib/schemas/plano";
@@ -20,19 +22,33 @@ type TableState = "LIBRE" | "OCUPADA" | "POR_COBRAR" | "BLOQUEADA";
 /**
  * Vista de pedidos del salón (spec 006): diseño POS de alta gama con pestañas de salón,
  * chips de filtrado rápido, métricas situacionales en vivo y tarjetas táctiles enriquecidas.
+ * La vista Plano (spec 018) dibuja el salón tal como lo dibujó el dueño, con las mesas
+ * pintadas por estado, el #pedido sobre las ocupadas y pulsación larga para anular (spec 019).
  */
-export function SalonView() {
+export function SalonView({ user }: { user: { id: number; esJefe: boolean } }) {
   const router = useRouter();
   const toast = useToast();
   const now = useNow();
   const rooms = useRooms();
   const orders = useActiveOrders();
   const open = useOpenOrder();
+  const queryClient = useQueryClient();
+  const isPhone = useMediaQuery("(max-width: 639px)");
 
   const [opening, setOpening] = useState<number | "llevar" | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<number | "TODOS">("TODOS");
   const [statusFilter, setStatusFilter] = useState<"TODOS" | TableState>("TODOS");
   const [searchQuery, setSearchQuery] = useState("");
+  // Plano por defecto en tablet/PC; tarjetas en celular (spec 018). El usuario puede cambiarla.
+  const [viewMode, setViewMode] = useState<"plano" | "mesas" | null>(null);
+  const view = viewMode ?? (isPhone ? "mesas" : "plano");
+  // Mesa cuyo pedido se está confirmando para anular desde el plano (spec 019).
+  const [holdTarget, setHoldTarget] = useState<OrderSummary | null>(null);
+
+  // El dueño guardó el plano: solo se refresca el salón que cambió (spec 005).
+  useRealtimeEvent("PlanoActualizado", (event) => {
+    void queryClient.invalidateQueries({ queryKey: floorKeys.plan(event.salon_id) });
+  });
 
   const activeRooms = useMemo(
     () => (rooms.data ?? []).filter((room) => room.es_activo).sort((a, b) => a.orden - b.orden),
@@ -54,8 +70,12 @@ export function SalonView() {
     return map;
   }, [orders.data]);
 
+  const orderOf = useCallback((mesaId: number) => byTable.get(mesaId), [byTable]);
+  const cancelOrder = useOrderAction(holdTarget?.id ?? 0);
+
   const takeAway = useMemo(
-    () => (orders.data ?? []).filter((order) => order.tipo === "PARA_LLEVAR"),
+    // Un para llevar sin platos no es un pedido: no debe aparecer (spec 019).
+    () => (orders.data ?? []).filter((order) => order.tipo === "PARA_LLEVAR" && order.platos > 0),
     [orders.data]
   );
 
@@ -125,10 +145,41 @@ export function SalonView() {
     }
   }
 
+  /** Un pedido ajeno no se abre: solo su mozo, el encargado o el admin (spec 025). */
+  function openOrder(order: OrderSummary) {
+    if (order.mozo && order.mozo.id !== user.id && !user.esJefe) {
+      toast({
+        tone: "warning",
+        message: `La abrió ${order.mozo.nombre}. Solo esa persona, el encargado o el admin pueden atenderla.`,
+      });
+      return;
+    }
+    router.push(`/panel/pedidos/${order.id}`);
+  }
+
   function tap(table: PlanTable) {
     const order = byTable.get(table.id);
-    if (order) router.push(`/panel/pedidos/${order.id}`);
+    if (order) openOrder(order);
     else if (table.estado !== "BLOQUEADA") void start({ tipo: "SALON", mesa_id: table.id }, table.id);
+  }
+
+  /** Pulsación larga sobre una mesa con pedido en el plano: confirmar anulación (spec 019). */
+  function hold(table: PlanTable) {
+    const order = byTable.get(table.id);
+    if (order) setHoldTarget(order);
+  }
+
+  async function confirmAnular() {
+    if (!holdTarget) return;
+    try {
+      await cancelOrder.mutateAsync({ action: "anular" });
+      toast({ tone: "ok", message: `Pedido #${holdTarget.numero} anulado: la mesa quedó libre.` });
+    } catch (error) {
+      // Con platos enviados la API lo impide; su mensaje explica cómo proceder.
+      toast({ tone: "error", message: error instanceof Error ? error.message : "No se pudo anular el pedido." });
+    } finally {
+      setHoldTarget(null);
+    }
   }
 
   const isInitialLoading = rooms.isPending || orders.isPending;
@@ -177,21 +228,52 @@ export function SalonView() {
           </p>
         </div>
 
-        {/* Botón Acción Rápida: Para Llevar */}
-        <Button
-          size="lg"
-          onClick={() => void start({ tipo: "PARA_LLEVAR" }, "llevar")}
-          isLoading={opening === "llevar"}
-          className="shadow-xs transition-all active:scale-[0.98]"
-        >
-          <Icon name="mas" className="h-5 w-5" />
-          <span>Para llevar</span>
-          {takeAway.length > 0 && (
-            <span className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/25 px-1.5 text-xs font-bold tabular-nums text-white">
-              {takeAway.length}
-            </span>
-          )}
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Conmutador Plano | Mesas (spec 018) */}
+          <div
+            role="group"
+            aria-label="Vista del salón"
+            className="flex items-center gap-1 rounded-xl border border-slate-200/90 bg-white p-1 shadow-2xs"
+          >
+            {(
+              [
+                { id: "plano", label: "Plano", icon: "plano" },
+                { id: "mesas", label: "Mesas", icon: "cuadricula" },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setViewMode(option.id)}
+                aria-pressed={view === option.id}
+                className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all ${
+                  view === option.id
+                    ? "bg-azul text-white shadow-xs"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-azul"
+                }`}
+              >
+                <Icon name={option.icon} className="h-3.5 w-3.5" />
+                <span>{option.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Botón Acción Rápida: Para Llevar */}
+          <Button
+            size="lg"
+            onClick={() => void start({ tipo: "PARA_LLEVAR" }, "llevar")}
+            isLoading={opening === "llevar"}
+            className="shadow-xs transition-all active:scale-[0.98]"
+          >
+            <Icon name="mas" className="h-5 w-5" />
+            <span>Para llevar</span>
+            {takeAway.length > 0 && (
+              <span className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/25 px-1.5 text-xs font-bold tabular-nums text-white">
+                {takeAway.length}
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* 2. TARJETAS DE SITUACIÓN GLOBAL (KPIs RÁPIDOS) */}
@@ -272,7 +354,7 @@ export function SalonView() {
               <li key={order.id} className="shrink-0">
                 <button
                   type="button"
-                  onClick={() => router.push(`/panel/pedidos/${order.id}`)}
+                  onClick={() => openOrder(order)}
                   className="group flex min-h-[82px] min-w-[160px] flex-col justify-between rounded-xl border border-sky-200 bg-white p-3 text-left shadow-2xs transition-all hover:border-azul hover:shadow-xs active:scale-[0.97]"
                 >
                   <div className="flex w-full items-center justify-between">
@@ -355,66 +437,88 @@ export function SalonView() {
             })}
           </div>
 
-          {/* Filtros de estado y buscador rápido de mesa */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-slate-100 pt-2.5">
-            {/* Chips de estado */}
-            <div className="flex flex-wrap items-center gap-1.5">
+          {view === "plano" ? (
+            /* Leyenda de la vista Plano (spec 018, gesto de anulación en la 019) */
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-2.5">
               {(
                 [
-                  { id: "TODOS", label: "Todas", count: allTables.length },
-                  { id: "LIBRE", label: "Libres", count: totalFree, dot: "bg-emerald-500" },
-                  { id: "OCUPADA", label: "Ocupadas", count: totalOccupied, dot: "bg-azul" },
-                  { id: "POR_COBRAR", label: "Por cobrar", count: totalToCollect, dot: "bg-amber-500" },
+                  { label: "Libre", dot: "border-2 border-azul bg-white" },
+                  { label: "Ocupada", dot: "bg-azul" },
+                  { label: "Por cobrar", dot: "bg-amber-500" },
+                  { label: "Bloqueada", dot: "bg-slate-300" },
                 ] as const
-              ).map((f) => {
-                const active = statusFilter === f.id;
-                return (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setStatusFilter(f.id)}
-                    className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold transition-all ${
-                      active
-                        ? "bg-slate-900 text-white shadow-2xs"
-                        : "border border-slate-200/90 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                    }`}
-                  >
-                    {"dot" in f && f.dot && <span className={`h-2 w-2 rounded-full ${f.dot}`} />}
-                    <span>{f.label}</span>
-                    <span className={`tabular-nums ${active ? "text-white/80" : "text-slate-400"}`}>
-                      ({f.count})
-                    </span>
-                  </button>
-                );
-              })}
+              ).map((legend) => (
+                <span key={legend.label} className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                  <span className={`h-3 w-3 rounded-full ${legend.dot}`} />
+                  {legend.label}
+                </span>
+              ))}
+              <span className="ml-auto text-xs font-medium text-slate-400">
+                Toca una mesa para abrir o ver su pedido · mantén presionada una ocupada para anular
+              </span>
             </div>
+          ) : (
+            /* Filtros de estado y buscador rápido de mesa */
+            <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-slate-100 pt-2.5">
+              {/* Chips de estado */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(
+                  [
+                    { id: "TODOS", label: "Todas", count: allTables.length },
+                    { id: "LIBRE", label: "Libres", count: totalFree, dot: "bg-emerald-500" },
+                    { id: "OCUPADA", label: "Ocupadas", count: totalOccupied, dot: "bg-azul" },
+                    { id: "POR_COBRAR", label: "Por cobrar", count: totalToCollect, dot: "bg-amber-500" },
+                  ] as const
+                ).map((f) => {
+                  const active = statusFilter === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setStatusFilter(f.id)}
+                      className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold transition-all ${
+                        active
+                          ? "bg-slate-900 text-white shadow-2xs"
+                          : "border border-slate-200/90 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      {"dot" in f && f.dot && <span className={`h-2 w-2 rounded-full ${f.dot}`} />}
+                      <span>{f.label}</span>
+                      <span className={`tabular-nums ${active ? "text-white/80" : "text-slate-400"}`}>
+                        ({f.count})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
 
-            {/* Buscador rápido de mesa */}
-            <div className="relative w-full sm:w-56">
-              <Icon
-                name="buscar"
-                className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar mesa..."
-                aria-label="Buscar mesa por código"
-                className="h-8.5 w-full rounded-lg border border-slate-200 bg-white pr-8 pl-9 text-xs font-medium text-tinta placeholder:text-slate-400 focus:border-azul focus:outline-none focus:ring-2 focus:ring-azul/10"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  aria-label="Limpiar búsqueda"
-                  className="absolute top-1/2 right-2.5 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600"
-                >
-                  ✕
-                </button>
-              )}
+              {/* Buscador rápido de mesa */}
+              <div className="relative w-full sm:w-56">
+                <Icon
+                  name="buscar"
+                  className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar mesa..."
+                  aria-label="Buscar mesa por código"
+                  className="h-8.5 w-full rounded-lg border border-slate-200 bg-white pr-8 pl-9 text-xs font-medium text-tinta placeholder:text-slate-400 focus:border-azul focus:outline-none focus:ring-2 focus:ring-azul/10"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    aria-label="Limpiar búsqueda"
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -432,6 +536,8 @@ export function SalonView() {
           const sortedTables = [...rawTables].sort((a, b) =>
             a.codigo.localeCompare(b.codigo, "es", { numeric: true })
           );
+          const planData = plans[activeRooms.findIndex((active) => active.id === room.id)]?.data;
+          const planPending = plans[activeRooms.findIndex((active) => active.id === room.id)]?.isPending;
 
           // Filtrar por estado y por texto de búsqueda
           const visibleTables = sortedTables.filter((table) => {
@@ -457,6 +563,7 @@ export function SalonView() {
           });
 
           const occupiedCount = sortedTables.filter((t) => byTable.has(t.id)).length;
+          const shownCount = view === "plano" ? sortedTables.length : visibleTables.length;
 
           return (
             <section key={room.id} className="space-y-3">
@@ -467,7 +574,7 @@ export function SalonView() {
                     {room.nombre}
                   </h2>
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500 tabular-nums">
-                    {visibleTables.length} {visibleTables.length === 1 ? "mesa" : "mesas"}
+                    {shownCount} {shownCount === 1 ? "mesa" : "mesas"}
                   </span>
                 </div>
                 {occupiedCount > 0 && (
@@ -477,8 +584,24 @@ export function SalonView() {
                 )}
               </div>
 
-              {/* Mesas del salón */}
-              {visibleTables.length === 0 ? (
+              {/* Mesas del salón: plano dibujado (spec 018) o cuadrícula de tarjetas */}
+              {view === "plano" ? (
+                planPending ? (
+                  <Skeleton className="h-[320px]" />
+                ) : !planData ? (
+                  <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                    No pudimos cargar el plano de este salón.
+                  </p>
+                ) : planData.mesas.length === 0 && planData.elementos.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
+                    <p className="text-sm font-medium text-slate-500">
+                      Este salón aún no tiene mesas dibujadas. El administrador las dibuja en «Plano del salón».
+                    </p>
+                  </div>
+                ) : (
+                  <SalonFloor plan={planData} orderOf={orderOf} onTableTap={tap} onTableHold={hold} />
+                )
+              ) : visibleTables.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
                   <p className="text-sm font-medium text-slate-500">
                     No hay mesas en {room.nombre} que coincidan con los filtros aplicados.
@@ -644,6 +767,34 @@ export function SalonView() {
           );
         })
       )}
+
+      {/* Confirmación de anulación desde el plano (spec 019) */}
+      <ConfirmDialog
+        open={holdTarget !== null}
+        title={
+          holdTarget?.mesa
+            ? `¿Anular el pedido #${holdTarget.numero} de la mesa ${holdTarget.mesa.codigo}?`
+            : `¿Anular el pedido #${holdTarget?.numero}?`
+        }
+        description="La mesa quedará libre. Si el pedido ya tiene platos enviados a cocina no se puede anular: se cobra la cuenta o se anulan los platos uno por uno."
+        confirmLabel="Sí, anular pedido"
+        cancelLabel="No"
+        variant="warning"
+        onConfirm={() => void confirmAnular()}
+        onCancel={() => setHoldTarget(null)}
+      />
     </div>
+  );
+}
+
+function useMediaQuery(query: string): boolean {
+  return useSyncExternalStore(
+    (notify) => {
+      const media = window.matchMedia(query);
+      media.addEventListener("change", notify);
+      return () => media.removeEventListener("change", notify);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
   );
 }

@@ -19,7 +19,11 @@ type Props = {
   editable: boolean;
   dispatch: (action: EditorAction) => void;
   onTableClick?: (item: FloorItem) => void;
+  /** Pulsación larga sobre una mesa en solo lectura (ej. anular desde el plano, spec 019). */
+  onTableHold?: (item: FloorItem) => void;
   onDropItem?: (payload: DropPayload, coords: { x: number; y: number }) => void;
+  /** Texto corto sobre una mesa que reemplaza su capacidad (ej. `#42` en Pedidos, spec 018). */
+  overlays?: Record<string, string>;
 };
 
 type Gesture = {
@@ -30,12 +34,25 @@ type Gesture = {
   origin: FloorItem;
 };
 
+type Hold = {
+  pointerId: number;
+  x: number;
+  y: number;
+  fired: boolean;
+};
+
 // Área táctil del tirador de tamaño en píxeles de pantalla (Doc. softflyer-ui: 44px).
 const HANDLE_PX = 44;
+// Pulsación larga: tiempo mínimo y tolerancia de movimiento antes de cancelarla (spec 019).
+const LONG_PRESS_MS = 550;
+const HOLD_TOLERANCE_PX = 10;
 
 /**
  * Lienzo del salón en unidades del plano (Doc. 08 §7): el `viewBox` es el tamaño del
- * salón y el SVG se escala al ancho disponible, con soporte para rotación lúcida y tiradores interactivos.
+ * salón y el SVG se escala al ancho disponible. Con `editable` es el editor (arrastrar,
+ * redimensionar, rotar); apagado es la vista del salón en Pedidos (spec 018): solo
+ * lectura, toque en las mesas, pulsación larga con `onTableHold` y sin bloquear el
+ * scroll táctil.
  */
 export function FloorCanvas({
   width,
@@ -46,10 +63,13 @@ export function FloorCanvas({
   editable,
   dispatch,
   onTableClick,
+  onTableHold,
   onDropItem,
+  overlays,
 }: Props) {
   const svg = useRef<SVGSVGElement>(null);
   const gesture = useRef<Gesture | null>(null);
+  const hold = useRef<Hold | null>(null);
   // Píxeles de pantalla por unidad del plano: el tirador mide 44px se vea como se vea el salón.
   const [scale, setScale] = useState(1);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -90,11 +110,10 @@ export function FloorCanvas({
 
   function start(event: React.PointerEvent, item: FloorItem, mode: Gesture["mode"]) {
     event.stopPropagation();
+    // En solo lectura el toque se resuelve con onClick: un deslizamiento para hacer
+    // scroll no debe abrir nada por accidente (spec 018).
+    if (!editable) return;
     dispatch({ type: "select", key: item.key });
-    if (!editable) {
-      onTableClick?.(item);
-      return;
-    }
     const { x, y } = toCanvas(event);
     gesture.current = { key: item.key, mode, startX: x, startY: y, origin: item };
     dispatch({ type: "checkpoint" });
@@ -163,6 +182,41 @@ export function FloorCanvas({
     gesture.current = null;
   }
 
+  // Pulsación larga (solo lectura): si se suelta o se mueve más de la tolerancia, se cancela.
+  function beginHold(event: React.PointerEvent, item: FloorItem, active: boolean) {
+    if (!active || event.button !== 0) return;
+    const pointerId = event.pointerId;
+    const { clientX: x, clientY: y } = event;
+    hold.current = { pointerId, x, y, fired: false };
+
+    window.setTimeout(() => {
+      const current = hold.current;
+      if (!current || current.pointerId !== pointerId || current.fired) return;
+      current.fired = true;
+      onTableHold?.(item);
+    }, LONG_PRESS_MS);
+  }
+
+  function moveHold(event: React.PointerEvent) {
+    const current = hold.current;
+    if (current && !current.fired && Math.hypot(event.clientX - current.x, event.clientY - current.y) > HOLD_TOLERANCE_PX) {
+      hold.current = null;
+    }
+  }
+
+  function endHold() {
+    if (hold.current && !hold.current.fired) hold.current = null;
+  }
+
+  // Tras una pulsación larga consumida, el clic que sigue no debe abrir la mesa.
+  function consumeHold(): boolean {
+    if (hold.current?.fired) {
+      hold.current = null;
+      return true;
+    }
+    return false;
+  }
+
   // Los elementos se dibujan debajo de las mesas, en el orden de su capa.
   const ordered = [...items].sort((a, b) => layer(a) - layer(b));
   const handle = HANDLE_PX / scale;
@@ -171,9 +225,11 @@ export function FloorCanvas({
     <svg
       ref={svg}
       viewBox={`0 0 ${width} ${height}`}
-      className={`block h-auto w-full touch-none rounded-xl border bg-white select-none transition-all ${
-        isDragOver ? "border-azul ring-4 ring-azul/30 shadow-lg" : "border-slate-200"
-      } ${editable ? "" : "cursor-default"}`}
+      className={`block h-auto w-full rounded-xl border bg-white select-none transition-all ${
+        editable ? "touch-none" : ""
+      } ${isDragOver ? "border-azul ring-4 ring-azul/30 shadow-lg" : "border-slate-200"} ${
+        editable ? "" : "cursor-default"
+      }`}
       onPointerMove={move}
       onPointerUp={end}
       onPointerCancel={end}
@@ -187,7 +243,7 @@ export function FloorCanvas({
       }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
-      role="img"
+      role={!editable && onTableClick ? "group" : "img"}
       aria-label="Plano del salón"
     >
       <defs>
@@ -209,17 +265,54 @@ export function FloorCanvas({
 
       {ordered.map((item) => {
         const isSelected = item.key === selected;
+        // En modo Pedidos cada mesa es un botón: toque, teclado y lector de pantalla (spec 018).
+        const interactive = !editable && item.kind === "mesa" && Boolean(onTableClick);
 
         return (
           <g
             key={item.key}
             transform={`translate(${item.pos_x} ${item.pos_y}) rotate(${item.rotacion} ${item.ancho / 2} ${item.alto / 2})`}
-            onPointerDown={(event) => start(event, item, "move")}
+            onPointerDown={(event) => {
+              start(event, item, "move");
+              beginHold(event, item, interactive && Boolean(onTableHold));
+            }}
+            onPointerMove={moveHold}
+            onPointerUp={endHold}
+            onPointerLeave={endHold}
+            onPointerCancel={endHold}
+            onClick={
+              interactive
+                ? () => {
+                    if (!consumeHold()) onTableClick?.(item);
+                  }
+                : undefined
+            }
+            onContextMenu={
+              interactive && onTableHold
+                ? (event) => {
+                    event.preventDefault();
+                    onTableHold(item);
+                  }
+                : undefined
+            }
+            role={interactive ? "button" : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            aria-label={interactive ? `Mesa ${item.codigo}` : undefined}
+            onKeyDown={
+              interactive
+                ? (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onTableClick?.(item);
+                    }
+                  }
+                : undefined
+            }
             className={editable ? "cursor-grab active:cursor-grabbing" : item.kind === "mesa" && onTableClick ? "cursor-pointer" : ""}
           >
             {/* Representación visual lúcida y arquitectónica */}
             {item.kind === "mesa" ? (
-              <ArchitecturalTableView item={item} error={!!errors[item.key]} />
+              <ArchitecturalTableView item={item} error={!!errors[item.key]} badge={overlays?.[item.key]} />
             ) : (
               <ArchitecturalElementView item={item} error={!!errors[item.key]} />
             )}

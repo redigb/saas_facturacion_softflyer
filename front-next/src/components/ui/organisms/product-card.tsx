@@ -34,7 +34,7 @@ export function ProductCard({
     >
       <div>
         <div className="flex items-start justify-between gap-3">
-          <ProductAvatar tipo={product.tipo} size="lg" className="group-hover:scale-105" />
+          <ProductAvatar tipo={product.tipo} imagenUrl={product.imagen_url} size="lg" className="group-hover:scale-105" />
           <div className="flex flex-wrap items-center justify-end gap-1.5">
             {product.tipo === "BEBIDA" ? (
               <Badge variant="info">Bebida</Badge>

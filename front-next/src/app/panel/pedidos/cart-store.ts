@@ -57,13 +57,12 @@ export function useCart(orderId: number) {
   return { cart, update };
 }
 
-/** Mismo plato con las mismas opciones y sin nota: se suma cantidad en vez de otra línea. */
+/** Mismo plato con las mismas opciones y la misma observación: se suma cantidad, no otra línea (spec 021). */
 export function addLine(cart: Cart, line: Omit<CartLine, "key">): Cart {
   const same = cart.lines.find(
     (current) =>
       current.producto_id === line.producto_id &&
       current.notas === line.notas &&
-      current.notas === "" &&
       [...current.modificador_ids].sort().join() === [...line.modificador_ids].sort().join(),
   );
 

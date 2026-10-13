@@ -144,6 +144,28 @@ class KitchenTest extends DatabaseTestCase
             ->assertNotFound();
     }
 
+    public function test_printing_marks_the_ticket_and_the_first_stamp_stays(): void
+    {
+        $ticket = $this->board($this->ids['cocina'])->json('data.0.id');
+
+        $first = $this->markPrinted($ticket)->assertOk()->json('data.impresa_en');
+        $this->assertNotNull($first);
+
+        // Reimprimir no mueve la marca original.
+        $this->assertSame($first, $this->markPrinted($ticket)->assertOk()->json('data.impresa_en'));
+    }
+
+    public function test_only_the_kitchen_or_the_admin_register_a_print(): void
+    {
+        $ticket = $this->board($this->ids['cocina'])->json('data.0.id');
+
+        $this->as($this->waiter, 'POST', "cocina/comandas/{$ticket}/impresa")->assertForbidden();
+
+        $this->as($this->admin, 'POST', "cocina/comandas/{$ticket}/impresa")
+            ->assertOk()
+            ->assertJsonPath('data.impresa_en', fn ($value) => $value !== null);
+    }
+
     private function board(int|string $station): TestResponse
     {
         return $this->as($this->cook, 'GET', "cocina/comandas?estacion_id={$station}");
@@ -152,5 +174,10 @@ class KitchenTest extends DatabaseTestCase
     private function state(string $token, int $item, string $state): TestResponse
     {
         return $this->as($token, 'PATCH', "cocina/detalles/{$item}", ['estado_cocina' => $state]);
+    }
+
+    private function markPrinted(int $ticket): TestResponse
+    {
+        return $this->as($this->cook, 'POST', "cocina/comandas/{$ticket}/impresa");
     }
 }

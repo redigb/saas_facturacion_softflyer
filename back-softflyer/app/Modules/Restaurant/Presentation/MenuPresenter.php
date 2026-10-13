@@ -9,6 +9,7 @@ use App\Modules\Restaurant\Infrastructure\Persistence\Modifier;
 use App\Modules\Restaurant\Infrastructure\Persistence\ModifierGroup;
 use App\Modules\Restaurant\Infrastructure\Persistence\PreparationStation;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Forma exacta del contrato de la spec 002 (specs/002-carta/backend.md). Las estaciones y
@@ -53,6 +54,7 @@ final class MenuPresenter
             'codigo' => $product->codigo,
             'nombre' => $product->nombre,
             'descripcion' => $product->descripcion,
+            'imagen_url' => $product->imagen_ruta ? Storage::disk('public')->url($product->imagen_ruta) : null,
             'tipo' => $product->tipo,
             'categoria_id' => $product->categoria_id,
             'precio_venta' => $product->precio_venta,

@@ -64,6 +64,19 @@ export function useDeliver(orderId: number) {
   });
 }
 
+/** La comanda salió del diálogo de impresión del navegador (spec 027). */
+export function usePrintTicket(station: Station) {
+  const queryClient = useQueryClient();
+  const key = boardKey(station);
+
+  return useMutation({
+    mutationFn: (ticketId: number) => apiRequest(`cocina/comandas/${ticketId}/impresa`, dataOf(ticketSchema), { method: "POST" }),
+    onSuccess: ({ data }) => {
+      queryClient.setQueryData<Ticket[]>(key, (tickets = []) => tickets.map((ticket) => (ticket.id === data.id ? data : ticket)));
+    },
+  });
+}
+
 function applyChange(ticket: Ticket, change: Change): Ticket {
   const detalles = ticket.detalles.map((item) => {
     if (item.anulado) return item;

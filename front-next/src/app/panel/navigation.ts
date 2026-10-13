@@ -21,6 +21,7 @@ export const NAVIGATION: NavSection[] = [
     items: [
       { label: "Plano del salón", icon: "plano", href: "/panel/plano", permisos: ["restaurante.plano.editar"] },
       { label: "Pedidos", icon: "pedidos", href: "/panel/pedidos", permisos: ["restaurante.pedidos.crear"] },
+      { label: "Mis órdenes", icon: "lista", href: "/panel/mis-pedidos", permisos: ["restaurante.pedidos.crear"] },
       { label: "Cocina", icon: "cocina", href: "/panel/cocina", permisos: ["restaurante.cocina.actualizar_estado"] },
       { label: "Caja", icon: "caja", href: "/panel/caja", permisos: ["caja.abrir"] },
     ],
@@ -28,7 +29,7 @@ export const NAVIGATION: NavSection[] = [
   {
     title: "Gestión",
     items: [
-      { label: "Carta", icon: "carta", href: "/panel/carta", permisos: ["productos.crear", "productos.editar", "productos.eliminar"] },
+      { label: "Carta", icon: "carta", href: "/panel/carta", permisos: ["productos.crear", "productos.editar", "productos.eliminar", "restaurante.pedidos.crear"] },
       { label: "Inventario", icon: "inventario", permisos: ["inventario.ver"] },
       { label: "Facturación", icon: "facturacion", permisos: ["comprobantes.emitir"] },
     ],

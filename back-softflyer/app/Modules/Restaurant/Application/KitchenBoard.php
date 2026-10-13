@@ -72,6 +72,24 @@ final class KitchenBoard
     }
 
     /**
+     * Marca la comanda como impresa (spec 027). La primera marca gana: reimprimir no la mueve.
+     */
+    public function markPrinted(User $user, KitchenTicket $ticket): KitchenTicket
+    {
+        $order = Order::whereKey($ticket->pedido_id)->firstOrFail();
+
+        if (! $user->worksAt($order->sucursal_id)) {
+            throw new AccessDeniedHttpException;
+        }
+
+        if ($ticket->impresa_en === null) {
+            $ticket->update(['impresa_en' => now()]);
+        }
+
+        return $ticket->fresh(['order.table', 'items.product', 'items.modifiers', 'sender']);
+    }
+
+    /**
      * @param  callable(KitchenTicket): \Illuminate\Support\Collection<int, OrderItem>  $select
      * @return array{ticket: KitchenTicket, order: Order, ready: list<OrderItem>}
      */

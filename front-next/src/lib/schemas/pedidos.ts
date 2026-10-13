@@ -11,6 +11,8 @@ export const menuSchema = z.object({
     z.object({
       id: z.number(),
       nombre: z.string(),
+      descripcion: z.string().nullable(),
+      imagen_url: z.string().nullable(),
       precio_venta: decimal,
       tipo: z.enum(["PLATO", "BEBIDA"]),
       categoria_id: z.number().nullable(),

@@ -10,6 +10,7 @@ export const ticketSchema = z.object({
   estacion_preparacion_id: z.number().nullable(),
   enviada_en: z.string(),
   enviada_por: z.string().nullable(),
+  impresa_en: z.string().nullable(),
   completa: z.boolean(),
   pedido: z.object({
     id: z.number(),

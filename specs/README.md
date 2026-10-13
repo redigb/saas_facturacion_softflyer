@@ -51,6 +51,17 @@ Para crear una nueva, copia [`_plantilla/`](_plantilla/) con el siguiente númer
 | 015-ventas-reportes | Config | ⚪ | ⚪ | Planificada |
 | 016-preview-sistema | Cierre | ⚪ | ⚪ | Planificada |
 | [017-facturacion-greenter](017-facturacion-greenter/spec.md) | H3 | ⚪ | ⚪ | Pendiente de diseño |
+| [018-plano-en-pedidos](018-plano-en-pedidos/spec.md) | H1 (mejora) | ➖ | ✅ | Cerrada |
+| [019-pedidos-pulido](019-pedidos-pulido/spec.md) | H1 (ajustes) | ➖ | ✅ | Cerrada |
+| [020-carta-y-pedidos](020-carta-y-pedidos/spec.md) | H1 (ajustes) | ✅ | ✅ | Cerrada |
+| [021-carrito-y-observaciones](021-carrito-y-observaciones/spec.md) | H1 (ajustes) | ➖ | ✅ | Cerrada |
+| [022-carrito-visible](022-carrito-visible/spec.md) | H1 (ajustes) | ➖ | ✅ | Cerrada |
+| [023-fotos-de-platos](023-fotos-de-platos/spec.md) | H1 (mejora) | ✅ | ✅ | Cerrada |
+| [024-vista-del-mozo](024-vista-del-mozo/spec.md) | H1 (mejora) | ➖ | ✅ | Cerrada |
+| [025-mesas-con-dueno](025-mesas-con-dueno/spec.md) | H1 (regla de negocio) | ✅ | ✅ | Cerrada |
+| [026-lupa-del-plato](026-lupa-del-plato/spec.md) | H1 (mejora) | ➖ | ✅ | Cerrada |
+| [027-impresion-de-comandas](027-impresion-de-comandas/spec.md) | H1 (pedido por el negocio) | ✅ | ✅ | Cerrada |
+| [028-agente-local-impresion](028-agente-local-impresion/spec.md) | H1 (Fase 2) | ⚪ | ⚪ | Pendiente de diseño |
 
 ## Hoja de ruta: configuración general y preview
 

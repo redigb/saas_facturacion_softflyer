@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Icon } from "@/components/icons";
 import { Button, Input } from "@/components/ui";
@@ -18,6 +18,8 @@ export function MenuPicker({ menu, disabled, onAdd }: Props) {
   const [category, setCategory] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [picking, setPicking] = useState<MenuProduct | null>(null);
+  // Lupa (spec 026): foto del plato en grande para mostrar al cliente.
+  const [zoomed, setZoomed] = useState<MenuProduct | null>(null);
 
   const current = category ?? categories[0]?.id ?? null;
   const term = search.trim().toLocaleLowerCase("es");
@@ -61,22 +63,52 @@ export function MenuPicker({ menu, disabled, onAdd }: Props) {
         </p>
       ) : (
         <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-          {products.map((product) => (
-            <li key={product.id}>
-              <button
-                type="button"
-                onClick={() => tap(product)}
-                disabled={disabled}
-                className="flex min-h-24 w-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3 text-left transition-all hover:border-azul active:scale-[0.97] disabled:opacity-50"
-              >
-                <span className="line-clamp-2 font-bold text-tinta">{product.nombre}</span>
-                <span className="mt-2 flex items-center justify-between text-sm">
-                  <span className="font-bold text-azul tabular-nums">S/ {product.precio_venta}</span>
-                  {product.modificador_grupo_ids.length > 0 && <span className="text-xs font-semibold text-slate-400">opciones</span>}
-                </span>
-              </button>
-            </li>
-          ))}
+          {products.map((product) => {
+            const categoryName =
+              product.categoria_id === null ? "Sin categoría" : (categories.find((item) => item.id === product.categoria_id)?.nombre ?? "");
+
+            return (
+              <li key={product.id} className="relative">
+                <button
+                  type="button"
+                  onClick={() => tap(product)}
+                  disabled={disabled}
+                  className="flex min-h-28 w-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3 text-left transition-all hover:border-azul active:scale-[0.97] disabled:opacity-50"
+                >
+                  {product.imagen_url && (
+                    // eslint-disable-next-line @next/next/no-img-element -- la foto ya viene comprimida del cliente
+                    <img src={product.imagen_url} alt="" loading="lazy" className="mb-2 h-24 w-full rounded-xl object-cover" />
+                  )}
+                  <span className="block w-full">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate text-[10px] font-bold tracking-wider text-slate-400 uppercase">{categoryName}</span>
+                      {product.modificador_grupo_ids.length > 0 && (
+                        <span className="shrink-0 text-[10px] font-semibold text-slate-400">opciones</span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 line-clamp-2 block font-bold text-tinta">{product.nombre}</span>
+                    {product.descripcion && (
+                      <span className="mt-0.5 line-clamp-2 block text-[11px] leading-snug text-slate-500">{product.descripcion}</span>
+                    )}
+                  </span>
+                  <span className="mt-2 block text-sm font-bold text-azul tabular-nums">S/ {product.precio_venta}</span>
+                </button>
+
+                {/* La lupa es hermana de la tarjeta: su toque no agrega al carrito (spec 026). */}
+                {product.imagen_url && (
+                  <button
+                    type="button"
+                    onClick={() => setZoomed(product)}
+                    aria-label={`Ver foto de ${product.nombre}`}
+                    title="Ver la foto en grande"
+                    className="absolute top-1.5 right-1.5 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-tinta shadow-xs backdrop-blur-xs transition-all hover:bg-white active:scale-95"
+                  >
+                    <Icon name="buscar" className="h-4.5 w-4.5" />
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -92,6 +124,45 @@ export function MenuPicker({ menu, disabled, onAdd }: Props) {
           }}
         />
       )}
+
+      {zoomed && <PhotoModal product={zoomed} onClose={() => setZoomed(null)} />}
+    </div>
+  );
+}
+
+/** Foto del plato en grande para mostrar al cliente (spec 026). */
+function PhotoModal({ product, onClose }: { product: MenuProduct; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      <div aria-hidden="true" onClick={onClose} className="fixed inset-0 bg-tinta/60 backdrop-blur-xs animate-in fade-in" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={product.nombre}
+        className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col rounded-t-3xl bg-white shadow-2xl animate-in slide-in-from-bottom sm:rounded-3xl"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-bold text-tinta">{product.nombre}</h2>
+            <p className="text-sm font-semibold text-azul tabular-nums">S/ {product.precio_venta}</p>
+            {product.descripcion && <p className="mt-1 line-clamp-2 text-sm text-slate-500">{product.descripcion}</p>}
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Cerrar">
+            <Icon name="cerrar" className="h-5 w-5" />
+          </Button>
+        </div>
+
+        {/* eslint-disable-next-line @next/next/no-img-element -- la foto ya viene comprimida del cliente */}
+        <img src={product.imagen_url ?? ""} alt={product.nombre} className="max-h-[70vh] w-full bg-slate-50 object-contain" />
+      </div>
     </div>
   );
 }
@@ -196,7 +267,7 @@ export function QuantityStepper({ value, onChange }: { value: number; onChange: 
       <span className="w-8 text-center text-lg font-bold text-tinta tabular-nums" aria-live="polite">
         {value}
       </span>
-      <button type="button" onClick={() => onChange(Math.min(999, value + 1))} aria-label="Más" className={button}>
+      <button type="button" onClick={() => onChange(Math.min(999, value + 1))} disabled={value >= 999} aria-label="Más" className={button}>
         +
       </button>
     </div>

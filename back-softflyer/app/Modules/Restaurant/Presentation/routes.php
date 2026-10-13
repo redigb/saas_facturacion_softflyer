@@ -37,6 +37,10 @@ Route::middleware(['inquilino', 'auth:sanctum', 'cuenta.vigente'])->group(functi
         Route::patch('/productos/{product}', [ProductController::class, 'update'])->middleware('permiso:productos.editar');
         Route::delete('/productos/{product}', [ProductController::class, 'destroy'])->middleware('permiso:productos.eliminar');
 
+        // Foto del plato (spec 023): subir, reemplazar o quitar.
+        Route::post('/productos/{product}/imagen', [ProductController::class, 'uploadImage'])->middleware('permiso:productos.crear|productos.editar');
+        Route::delete('/productos/{product}/imagen', [ProductController::class, 'destroyImage'])->middleware('permiso:productos.crear|productos.editar');
+
         Route::post('/estaciones', [StationController::class, 'store'])->middleware('permiso:productos.crear');
         Route::patch('/estaciones/{station}', [StationController::class, 'update'])->middleware('permiso:productos.editar');
 
@@ -71,4 +75,5 @@ Route::middleware(['inquilino', 'auth:sanctum', 'cuenta.vigente'])->group(functi
     Route::get('/cocina/comandas', [KitchenController::class, 'index'])->middleware('permiso:restaurante.cocina.actualizar_estado|panel.ver');
     Route::patch('/cocina/detalles/{item}', [KitchenController::class, 'updateItem'])->middleware('permiso:restaurante.cocina.actualizar_estado|restaurante.pedidos.crear');
     Route::post('/cocina/comandas/{ticket}/listo', [KitchenController::class, 'ticketReady'])->middleware('permiso:restaurante.cocina.actualizar_estado');
+    Route::post('/cocina/comandas/{ticket}/impresa', [KitchenController::class, 'printed'])->middleware('permiso:restaurante.cocina.actualizar_estado|panel.ver');
 });
