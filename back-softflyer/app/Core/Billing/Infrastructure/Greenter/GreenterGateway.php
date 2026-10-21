@@ -80,16 +80,7 @@ final class GreenterGateway implements SunatGateway
 
         $company = Company::findOrFail($receipt->empresa_id);
         $type = (string) DB::table('tipos_comprobante')->where('id', $receipt->tipo_comprobante_id)->value('codigo');
-
-        try {
-            $client = new SoapClient(SunatEndpoints::FE_CONSULTA_CDR.'?wsdl');
-            $client->setCredentials($company->ruc.$company->usuario_sol, Crypt::decryptString($company->clave_sol_cifrada));
-            $service = new ConsultCdrService;
-            $service->setClient($client);
-            $result = $service->getStatusCdr($company->ruc, $type, $receipt->serie, (int) $receipt->correlativo);
-        } catch (Throwable $e) {
-            throw new SunatUnavailable('Fallo al consultar el CDR: '.$e->getMessage(), false, $e);
-        }
+        $result = $this->queryStatus($company, $type, $receipt->serie, (int) $receipt->correlativo);
 
         if (! $result->isSuccess()) {
             $code = (string) $result->getError()?->getCode();
@@ -104,6 +95,43 @@ final class GreenterGateway implements SunatGateway
         }
 
         return $result->getCdrZip() === null ? null : $this->fromCdr($result->getCdrResponse(), $result->getCdrZip(), '', null);
+    }
+
+    public function checkCredentials(Company $company): string
+    {
+        if ($this->fiscal->status()['entorno'] !== 'PRODUCCION') {
+            return self::CREDENTIALS_UNVERIFIABLE;
+        }
+
+        // Una serie que ninguna empresa usa: SUNAT contesta "no existe" solo si antes aceptó al usuario.
+        $result = $this->queryStatus($company, '01', 'F999', 99999999);
+        if ($result->isSuccess()) {
+            return self::CREDENTIALS_OK;
+        }
+
+        $code = (string) $result->getError()?->getCode();
+        if (in_array($code, self::AUTH_CODES, true)) {
+            return self::CREDENTIALS_REJECTED;
+        }
+        if (! ctype_digit($code) || (int) $code < 2000 && $code !== '0011') {
+            throw new SunatUnavailable("SUNAT respondió {$code} al verificar las credenciales");
+        }
+
+        return self::CREDENTIALS_OK;
+    }
+
+    private function queryStatus(Company $company, string $type, string $series, int $number): StatusCdrResult
+    {
+        try {
+            $client = new SoapClient(SunatEndpoints::FE_CONSULTA_CDR.'?wsdl');
+            $client->setCredentials($company->ruc.$company->usuario_sol, Crypt::decryptString($company->clave_sol_cifrada));
+            $service = new ConsultCdrService;
+            $service->setClient($client);
+
+            return $service->getStatusCdr($company->ruc, $type, $series, $number);
+        } catch (Throwable $e) {
+            throw new SunatUnavailable('Fallo al consultar SUNAT: '.$e->getMessage(), false, $e);
+        }
     }
 
     private function fromCdr(?object $cdr, ?string $zip, string $xml, ?string $hash): SunatResponse

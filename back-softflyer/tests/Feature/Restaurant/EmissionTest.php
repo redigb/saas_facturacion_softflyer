@@ -11,6 +11,7 @@ use App\Core\Billing\Application\SunatUnavailable;
 use App\Core\Billing\Infrastructure\Greenter\ReceiptGreenterMapper;
 use App\Core\Billing\Infrastructure\Jobs\SendReceiptJob;
 use App\Core\Billing\Infrastructure\Persistence\Receipt;
+use App\Core\Tenancy\Infrastructure\Persistence\Company;
 use Greenter\See;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
@@ -68,6 +69,11 @@ class EmissionTest extends DatabaseTestCase
                 $this->sunat->calls++;
 
                 return ($this->sunat->next)();
+            }
+
+            public function checkCredentials(Company $company): string
+            {
+                return self::CREDENTIALS_OK;
             }
 
             public function cdr(Receipt $receipt): ?SunatResponse

@@ -3,6 +3,7 @@
 namespace App\Core\Billing\Application;
 
 use App\Core\Billing\Infrastructure\Persistence\Receipt;
+use App\Core\Tenancy\Infrastructure\Persistence\Company;
 
 /**
  * Puerta hacia SUNAT (Doc. 04). La implementación real usa Greenter; las pruebas la reemplazan
@@ -24,4 +25,20 @@ interface SunatGateway
      * @throws SunatAuthFailed
      */
     public function cdr(Receipt $receipt): ?SunatResponse;
+
+    /**
+     * Pregunta a SUNAT por un comprobante que no existe: si contesta "no existe" (0011), el usuario y la clave SOL
+     * son válidos. Solo existe en producción; en beta no hay con qué verificar (beta acepta cualquier credencial).
+     *
+     * @return self::CREDENTIALS_*
+     *
+     * @throws SunatUnavailable
+     */
+    public function checkCredentials(Company $company): string;
+
+    public const CREDENTIALS_OK = 'OK';
+
+    public const CREDENTIALS_REJECTED = 'RECHAZADAS';
+
+    public const CREDENTIALS_UNVERIFIABLE = 'NO_VERIFICABLE';
 }
