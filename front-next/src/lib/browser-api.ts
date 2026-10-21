@@ -46,8 +46,9 @@ async function send(path: string, { method = "GET", body, headers = {} }: Reques
   try {
     response = await fetch(`/api/${path}`, {
       method,
-      headers: { Accept: "application/json", ...(body === undefined ? {} : { "Content-Type": "application/json" }), ...headers },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      // Con FormData el navegador pone el Content-Type con su boundary.
+      headers: { Accept: "application/json", ...(body === undefined || body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...headers },
+      body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiRequestError(0, "SIN_CONEXION", "No hay conexión. Revisa tu internet e intenta de nuevo.");

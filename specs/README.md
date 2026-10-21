@@ -50,7 +50,10 @@ Para crear una nueva, copia [`_plantilla/`](_plantilla/) con el siguiente númer
 | 014-inventario-simple | H4a | ⚪ | ⚪ | Planificada |
 | 015-ventas-reportes | Config | ⚪ | ⚪ | Planificada |
 | 016-preview-sistema | Cierre | ⚪ | ⚪ | Planificada |
-| [017-facturacion-greenter](017-facturacion-greenter/spec.md) | H3 | ⚪ | ⚪ | Pendiente de diseño |
+| [017-facturacion-greenter](017-facturacion-greenter/spec.md) | H3 | ⚪ | ⚪ | Diseño cerrado (índice) |
+| [017a-configuracion-fiscal](017a-configuracion-fiscal/spec.md) | H3 | ✅ | ✅ | Cerrada (2026-10-19) |
+| [017b-emision-greenter](017b-emision-greenter/spec.md) | H3 | 🟡 | ⚪ | En curso: boleta y factura aceptadas en beta, reintentos automáticos. Pendiente de producción: consulta de CDR y 1033 (solo existen allí) |
+| [017c-estado-operacion](017c-estado-operacion/spec.md) | H3 | ⚪ | ⚪ | Pendiente |
 
 ## Hoja de ruta: configuración general y preview
 
@@ -67,3 +70,14 @@ Objetivo: un sistema completo para mostrar al cliente, con **solo la facturació
 | 017 facturación Greenter | Emisión real a SUNAT; pendiente de diseño (decisiones abiertas en su `spec.md`) |
 
 Orden: 011 → 012 → 014 → 015 → 016, con 013 intercalable. La 017 queda al final.
+
+## Pendiente de verificar solo en SUNAT producción
+
+- La consulta de CDR (`getStatusCdr`) y la respuesta 1033 no existen en beta (un reenvío allí se acepta de nuevo). Están probadas con un doble de SUNAT; confirmarlas con la primera empresa homologada (spec 017b).
+- El servidor debe correr `php artisan schedule:run` cada minuto además del worker de cola.
+- Las tasas reducidas (Ley 31556: 10 %) no están sembradas: cargarlas con sus vigencias exactas, validadas por un contador, antes de asignarlas a una sucursal. Lo mismo para quién califica a la exoneración de la Amazonía y si le corresponde la leyenda 2001 (bienes) o 2002 (servicios).
+
+## Reservado para después (no se construye ahora)
+
+- **Varios RUC por cliente (multi-RUC).** Hoy un cliente (inquilino) tiene una sola empresa. La salida más barata es un cliente por RUC y, encima, un grupo o cuenta que los agrupe en el backoffice. Decidir con un caso real. La base ya ayuda: las series se piden únicas por RUC, el IGV se resuelve por sucursal y todo lo fiscal cuelga de `empresas`, no del cliente.
+- **Rubro por sucursal** (farmacia, ferretería, hotel…) y los módulos de cada rubro. Sin un cliente real de otro rubro, no hay qué diseñar.

@@ -71,6 +71,60 @@ export async function reactivateClient(slug: string): Promise<FormState> {
   return clientAction(slug, "reactivar", {}, "Cliente reactivado.");
 }
 
+export async function setHomologation(slug: string, homologated: boolean): Promise<FormState> {
+  return clientAction(slug, "homologacion", { homologado: homologated }, homologated ? "Homologación marcada como completa." : "Homologación retirada.");
+}
+
+/** Acciones fiscales: la facturación del cliente la administra solo el backoffice. */
+async function fiscalRequest(slug: string, path: string, init: RequestInit, success: string): Promise<FormState> {
+  const result = await apiFetch(`plataforma/clientes/${slug}/fiscal/${path}`, init);
+
+  if (!result.ok) {
+    return { mensaje: result.error.mensaje, errores: result.error.detalles ?? undefined };
+  }
+
+  revalidatePath("/plataforma", "layout");
+
+  return { ok: true, mensaje: success };
+}
+
+export async function uploadCertificate(slug: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  const file = formData.get("certificado");
+  if (!(file instanceof File) || file.size === 0) {
+    return { mensaje: "Sube el archivo del certificado." };
+  }
+
+  const body = new FormData();
+  body.append("certificado", file);
+  body.append("contrasena", String(formData.get("contrasena") ?? ""));
+
+  return fiscalRequest(slug, "certificado", { method: "POST", body }, "Certificado cargado.");
+}
+
+export async function saveSolCredentials(slug: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  const body = JSON.stringify({ usuario_sol: formData.get("usuario_sol"), clave_sol: formData.get("clave_sol") });
+
+  return fiscalRequest(slug, "credenciales-sol", { method: "PUT", body }, "Credenciales SOL guardadas.");
+}
+
+export async function setCompanyRate(slug: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  const body = JSON.stringify({ tasa_igv_id: Number(formData.get("tasa_igv_id")) });
+
+  return fiscalRequest(slug, "tasa-igv", { method: "PUT", body }, "Tasa de la empresa guardada.");
+}
+
+/** Tasa propia del local (vacía hereda la de la empresa) y exoneración por la Amazonía con su leyenda. */
+export async function setBranchTax(slug: string, branchId: number, _prev: FormState, formData: FormData): Promise<FormState> {
+  const rate = String(formData.get("tasa_igv_id") ?? "");
+  const body = JSON.stringify({
+    tasa_igv_id: rate === "" ? null : Number(rate),
+    exonerado_amazonia: formData.get("exonerado_amazonia") === "on",
+    leyenda_amazonia: String(formData.get("leyenda_amazonia") ?? "2001"),
+  });
+
+  return fiscalRequest(slug, `sucursales/${branchId}`, { method: "PATCH", body }, "IGV del local guardado.");
+}
+
 export async function createClient(_prev: FormState, formData: FormData): Promise<FormState> {
   const fields = ["ruc", "razon_social", "nombre_comercial", "slug", "nombre_contacto", "correo", "plan"];
   const body = Object.fromEntries(fields.map((field) => [field, String(formData.get(field) ?? "").trim()]));

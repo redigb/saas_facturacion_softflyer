@@ -2,9 +2,12 @@
 
 namespace App\Platform\Application;
 
+use App\Core\Billing\Application\ManageFiscalConfiguration;
 use App\Core\Tenancy\Application\ProvisionTenant;
 use App\Core\Tenancy\Application\SubdomainAvailability;
 use App\Core\Tenancy\Domain\TenantStatus;
+use App\Core\Tenancy\Infrastructure\Persistence\Branch;
+use App\Core\Tenancy\Infrastructure\Persistence\Company;
 use App\Core\Tenancy\Infrastructure\Persistence\Plan;
 use App\Core\Tenancy\Infrastructure\Persistence\Subscription;
 use App\Core\Tenancy\Infrastructure\Persistence\Tenant;
@@ -99,6 +102,67 @@ final class ManageClient
 
             $tenant->update(['estado' => $status]);
             $this->log($admin, $tenant, 'CLIENTE_REACTIVADO', ['estado' => $status->value]);
+        });
+    }
+
+    /** La empresa ya completó su homologación ante SUNAT (Doc. 04 §7): habilita producción. */
+    public function setHomologation(Tenant $tenant, bool $homologated, PlatformAdmin $admin): void
+    {
+        $this->insideTenant($tenant, function () use ($tenant, $homologated, $admin) {
+            $company = Company::query()->orderBy('id')->firstOrFail();
+            $company->update(['homologado' => $homologated]);
+            $this->log($admin, $tenant, 'HOMOLOGACION_ACTUALIZADA', ['homologado' => $homologated]);
+        });
+    }
+
+    /** El backoffice carga el certificado del cliente: la facturación no la administra el dueño. */
+    public function uploadCertificate(Tenant $tenant, string $contents, string $password, PlatformAdmin $admin): void
+    {
+        $this->insideTenant($tenant, function () use ($tenant, $contents, $password, $admin) {
+            app(ManageFiscalConfiguration::class)->importCertificate($contents, $password);
+            $this->log($admin, $tenant, 'CERTIFICADO_CARGADO', []);
+        });
+    }
+
+    public function saveSolCredentials(Tenant $tenant, string $user, string $password, PlatformAdmin $admin): void
+    {
+        $this->insideTenant($tenant, function () use ($tenant, $user, $password, $admin) {
+            app(ManageFiscalConfiguration::class)->saveSolCredentials($user, $password);
+            // La clave nunca entra a la bitácora.
+            $this->log($admin, $tenant, 'CREDENCIALES_SOL_ACTUALIZADAS', ['usuario_sol' => $user]);
+        });
+    }
+
+    /** Tasa de IGV de la empresa; las sucursales sin tasa propia la heredan. */
+    public function setCompanyRate(Tenant $tenant, int $rateId, PlatformAdmin $admin): void
+    {
+        $this->insideTenant($tenant, function () use ($tenant, $rateId, $admin) {
+            app(ManageFiscalConfiguration::class)->chooseRate($rateId);
+            $this->log($admin, $tenant, 'TASA_IGV_ACTUALIZADA', ['alcance' => 'empresa', 'tasa_igv_id' => $rateId]);
+        });
+    }
+
+    /**
+     * IGV de una sucursal: tasa propia (nulo hereda la de la empresa) y si está exonerada por la Amazonía.
+     * Solo se cambia lo que viene en `$changes`.
+     *
+     * @param  array{tasa_igv_id?: ?int, exonerado_amazonia?: bool, leyenda_amazonia?: string}  $changes
+     */
+    public function setBranchTax(Tenant $tenant, int $branchId, array $changes, PlatformAdmin $admin): void
+    {
+        $this->insideTenant($tenant, function () use ($tenant, $branchId, $changes, $admin) {
+            $branch = Branch::findOrFail($branchId);
+
+            // Solo lo que de verdad cambia queda en la bitácora.
+            if (array_key_exists('tasa_igv_id', $changes) && $changes['tasa_igv_id'] !== $branch->tasa_igv_id) {
+                app(ManageFiscalConfiguration::class)->chooseBranchRate($branch, $changes['tasa_igv_id']);
+                $this->log($admin, $tenant, 'TASA_IGV_ACTUALIZADA', ['alcance' => 'sucursal', 'sucursal' => $branch->nombre, 'tasa_igv_id' => $changes['tasa_igv_id']]);
+            }
+            $amazonia = array_intersect_key($changes, array_flip(['exonerado_amazonia', 'leyenda_amazonia']));
+            if ($amazonia !== [] && array_diff_assoc($amazonia, $branch->only(array_keys($amazonia))) !== []) {
+                $branch->update($amazonia);
+                $this->log($admin, $tenant, 'AMAZONIA_LOCAL_ACTUALIZADA', ['sucursal' => $branch->nombre, 'exonerado_amazonia' => $branch->exonerado_amazonia, 'leyenda' => $branch->leyenda_amazonia]);
+            }
         });
     }
 

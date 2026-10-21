@@ -1,47 +1,51 @@
-# 017 — Facturación electrónica con Greenter
+# 017 — Facturación electrónica con Greenter (índice)
 
-**Estado:** ⚪ Pendiente de diseño (va al final de la hoja de ruta, después de la 016; no se abre hasta resolver las decisiones abiertas)
-**Backend:** ⚪ · **Frontend:** ⚪
+**Estado:** 🟡 Diseño cerrado (2026-10-19) · se implementa en tres partes
 **Hito:** H3 real (Doc. 09 §2) — cumple el objetivo 2 del cliente: "no facturar a mano"
 **Documentos:** Doc. 04 (todo), Doc. 08 §11 (comprobantes, series, resúmenes), Doc. 06 §9 (seguridad de la integración)
 
 ## Qué y por qué
 
-La spec 010 deja comprobantes **simulados**: numerados, con cliente y listos para imprimir, pero sin validez tributaria. Esta spec los vuelve **reales**: se firman con el certificado de la empresa, se envían a SUNAT por cola y guardan su respuesta (CDR). El cobro nunca espera a SUNAT.
+La spec 010 deja comprobantes **simulados**. Esta línea los vuelve **reales**: se firman con el certificado de la empresa, se envían a SUNAT por cola y guardan su respuesta (CDR). El cobro nunca espera a SUNAT.
 
-La 010 ya dejó el enganche (`IssueReceipt`), la numeración por serie y el JSON de comprobante; aquí solo se agrega lo que falta (ver *Preparación para Greenter* en `010-comprobante-simulado/backend.md`).
+Motor decidido: **Greenter** (`greenter/lite` ^5.3), sin proveedores intermedios. Verificado el 2026-10-19: instala en PHP 8.3 y genera y firma un XML UBL 2.1 de boleta (extensiones `soap`, `zlib`, `openssl` activas).
 
-## Decisiones abiertas (resolver antes de abrir)
+## Partes
 
-- [ ] **¿Certificado real o entorno beta de SUNAT primero?** Define si el piloto ya tiene RUC, certificado digital y usuario SOL, o se empieza contra beta (Doc. 04 §7, homologación).
-- [ ] **Tasa de IGV:** tasa reducida para MYPE de restaurantes (Ley 31556 y prórrogas) o 18 %; validar con un contador antes de cargar `tasas_igv` (Doc. 08 §11.1).
-- [ ] **Afectación por producto:** ¿todo gravado o hay productos exonerados/inafectos en la carta del piloto?
-- [ ] **Boleta ≥ S/ 700:** confirmar que se exige identificar al cliente y cómo se pide en la pantalla de cobro.
-- [ ] **Driver de cola en producción:** `database` vs Redis (Doc. 09 §3.7) y supervisor del worker.
-- [ ] **Almacenamiento de XML/CDR/PDF:** disco local, S3 u otro, y retención (SUNAT pide 5 años).
-- [ ] **PDF/ticket:** ¿PDF A4 generado en servidor o solo el ticket del navegador?
+| Spec | Entrega | Estado |
+|---|---|---|
+| [017a](../017a-configuracion-fiscal/spec.md) | Configuración fiscal: certificado, clave SOL, tasa y afectación IGV; la administra Softflyer desde el backoffice | ✅ cerrada |
+| [017b](../017b-emision-greenter/spec.md) | Emisión: clientes, detalle, mapper, Job, XML firmado, envío a beta, CDR | ⚪ |
+| [017c](../017c-estado-operacion/spec.md) | Estado en la lista, rechazos, reenvío, vista en el backoffice | ⚪ |
 
-## Alcance previsto
+## Decisiones cerradas
 
-- Emisión real de **boleta y factura**: XML UBL 2.1, firma, envío, lectura del CDR.
-- Estados `PENDIENTE_ENVIO → ENVIADO → ACEPTADO / OBSERVADO / RECHAZADO`, con reintentos y backoff, visibles en la lista de comprobantes.
-- Pantalla de **configuración fiscal** de la empresa: RUC, razón social, dirección, ubigeo, carga de certificado, usuario y clave SOL (cifrada).
-- Tabla `clientes` con "CLIENTES VARIOS" y búsqueda por DNI/RUC.
-- `detalle_comprobantes` con valor y precio unitario por separado.
-- Afectación IGV por producto y tasa con vigencia.
-- Aviso al cajero cuando un comprobante queda rechazado, con acción de reenvío.
+| Tema | Decisión |
+|---|---|
+| Entorno | SUNAT **beta** con certificado de prueba. Producción solo para empresas con `empresas.homologado` (Doc. 04 §7). |
+| Tasa de IGV | Tabla `tasas_igv` con vigencia, sembrada al 18 %. Cualquier tasa reducida se carga cuando un contador la valide. |
+| Afectación | Gravado por defecto. Exonerado e inafecto se configuran **desde el panel de configuración** (tasas y afectación), no como campo suelto en la carta. |
+| Boleta ≥ S/ 700 | Exige identificar al cliente; la pantalla de cobro lo pide antes de emitir. |
+| Cola | Driver `database`, backoff, 5 intentos y luego revisión manual (Doc. 04 §6). |
+| Archivos | Disco privado local detrás de una interfaz (cambiar a S3 es configuración). Retención de 5 años. |
+| PDF | Solo ticket del navegador, **con código QR**. PDF A4 queda para después. |
+| `See` | Una instancia por Job, nunca singleton (Doc. 04 §4). |
 
-## Criterios de aceptación (borrador)
+## Tomado como referencia (no se integra ningún tercero)
+
+Respuesta inmediata con estado de cola, enlaces de descarga de XML, CDR y PDF desde la lista, y evento interno al aceptarse o rechazarse un comprobante para avisar al cajero en tiempo real.
+
+## Criterios de aceptación globales
 
 - [ ] Cobrar una cuenta nunca espera a SUNAT: el cajero recibe el número al instante.
-- [ ] Un comprobante real aparece como `ACEPTADO` en la lista tras el envío, con su CDR guardado.
-- [ ] Si SUNAT no responde, la venta queda cobrada y el comprobante se reintenta solo; el cajero ve "Pendiente de envío".
-- [ ] Un comprobante rechazado muestra el motivo en lenguaje claro y permite corregir y reenviar.
+- [ ] Un comprobante real aparece como `ACEPTADO` tras el envío, con su CDR guardado.
+- [ ] Si SUNAT no responde, la venta queda cobrada y el comprobante se reintenta solo.
+- [ ] Un rechazo muestra el motivo en lenguaje claro y permite corregir y reenviar.
 - [ ] Los comprobantes simulados de la 010 nunca se envían.
 - [ ] La clave SOL y el certificado nunca viajan al navegador ni a los logs.
 
 ## Fuera de alcance (specs posteriores)
 
-- Notas de crédito y débito, comunicaciones de baja y resumen diario (anulaciones).
-- Guía de remisión (módulo Distribuidora, Fase 3).
-- Multimoneda.
+- Notas de crédito y débito, comunicaciones de baja y resumen diario.
+- Guía de remisión (módulo Distribuidora, Fase 3; usa API REST aparte, Doc. 04 §8).
+- Multimoneda y PDF A4.

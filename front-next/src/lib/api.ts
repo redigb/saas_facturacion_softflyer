@@ -57,7 +57,7 @@ export async function apiFetch<T>(
   if (clientIp) {
     requestHeaders.set("X-Forwarded-For", clientIp);
   }
-  if (init.body) {
+  if (init.body && !(init.body instanceof FormData)) {
     requestHeaders.set("Content-Type", "application/json");
   }
   if (token) {

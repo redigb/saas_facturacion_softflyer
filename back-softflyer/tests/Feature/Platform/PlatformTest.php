@@ -111,6 +111,64 @@ class PlatformTest extends DatabaseTestCase
             ->assertJsonPath('data.inquilino.modo', 'PAGO');
     }
 
+    public function test_client_detail_shows_fiscal_status_without_secrets_and_admin_sets_homologation(): void
+    {
+        $this->provision('donjose', TenantStatus::Active);
+        $token = $this->adminToken();
+
+        $this->withToken($token)->getJson(self::API.'clientes/donjose')->assertOk()
+            ->assertJsonPath('data.fiscal.certificado', null)
+            ->assertJsonPath('data.fiscal.homologado', false)
+            ->assertJsonPath('data.fiscal.entorno', 'BETA')
+            ->assertJsonMissingPath('data.fiscal.clave_sol');
+
+        $this->withToken($token)->postJson(self::API.'clientes/donjose/homologacion', ['homologado' => true])->assertOk();
+        $this->withToken($token)->getJson(self::API.'clientes/donjose')
+            ->assertJsonPath('data.fiscal.homologado', true)
+            ->assertJsonPath('data.bitacora.0.accion', 'HOMOLOGACION_ACTUALIZADA');
+        $this->withToken($token)->postJson(self::API.'clientes/donjose/homologacion', [])->assertStatus(422);
+    }
+
+    public function test_the_admin_loads_the_client_fiscal_data_and_the_igv_per_branch(): void
+    {
+        $this->provision('donjose', TenantStatus::Active);
+        $token = $this->adminToken();
+
+        // La facturación del cliente es del backoffice, y la clave nunca vuelve en la respuesta.
+        $this->withToken($token)->putJson(self::API.'clientes/donjose/fiscal/credenciales-sol', ['usuario_sol' => 'MODDATOS', 'clave_sol' => 'secreta1234'])
+            ->assertOk()->assertJsonMissingPath('data.clave_sol');
+        $detail = $this->withToken($token)->getJson(self::API.'clientes/donjose')
+            ->assertJsonPath('data.fiscal.usuario_sol', 'MODDATOS')
+            ->assertJsonPath('data.fiscal.tiene_clave_sol', true)
+            ->assertJsonPath('data.bitacora.0.accion', 'CREDENCIALES_SOL_ACTUALIZADAS');
+        $this->assertStringNotContainsString('secreta1234', $detail->getContent());
+
+        $branch = $detail->json('data.sucursales_detalle.0.id');
+        $rates = $detail->json('data.tasas_igv');
+        $this->assertNotEmpty($rates);
+        $this->assertNull($detail->json('data.sucursales_detalle.0.tasa_igv_id'));
+        $this->assertFalse($detail->json('data.sucursales_detalle.0.exonerado_amazonia'));
+
+        // Sucursal en la Amazonía de servicios con una tasa propia; cada cambio queda en la bitácora.
+        $this->withToken($token)->patchJson(self::API."clientes/donjose/fiscal/sucursales/{$branch}", ['exonerado_amazonia' => true, 'leyenda_amazonia' => '2002'])->assertOk();
+        $this->withToken($token)->patchJson(self::API."clientes/donjose/fiscal/sucursales/{$branch}", ['tasa_igv_id' => $rates[0]['id']])->assertOk();
+        $this->withToken($token)->getJson(self::API.'clientes/donjose')
+            ->assertJsonPath('data.sucursales_detalle.0.exonerado_amazonia', true)
+            ->assertJsonPath('data.sucursales_detalle.0.leyenda_amazonia', '2002')
+            ->assertJsonPath('data.sucursales_detalle.0.tasa_igv_id', $rates[0]['id'])
+            ->assertJsonPath('data.bitacora.0.accion', 'TASA_IGV_ACTUALIZADA')
+            ->assertJsonPath('data.bitacora.1.accion', 'AMAZONIA_LOCAL_ACTUALIZADA');
+
+        // Volver a heredar la tasa de la empresa, y la de la empresa misma.
+        $this->withToken($token)->patchJson(self::API."clientes/donjose/fiscal/sucursales/{$branch}", ['tasa_igv_id' => null])->assertOk();
+        $this->withToken($token)->getJson(self::API.'clientes/donjose')->assertJsonPath('data.sucursales_detalle.0.tasa_igv_id', null);
+        $this->withToken($token)->putJson(self::API.'clientes/donjose/fiscal/tasa-igv', ['tasa_igv_id' => $rates[0]['id']])->assertOk();
+        $this->withToken($token)->putJson(self::API.'clientes/donjose/fiscal/tasa-igv', ['tasa_igv_id' => 99999])->assertStatus(422);
+        $this->withToken($token)->patchJson(self::API."clientes/donjose/fiscal/sucursales/{$branch}", ['leyenda_amazonia' => '2009'])->assertStatus(422);
+
+        $this->withToken($token)->postJson(self::API.'clientes/donjose/fiscal/certificado', [])->assertStatus(422);
+    }
+
     public function test_tokens_do_not_cross_between_platform_and_tenants(): void
     {
         $tenant = $this->provision('donjose', TenantStatus::Active);

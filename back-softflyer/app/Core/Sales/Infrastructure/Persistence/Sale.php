@@ -21,6 +21,8 @@ class Sale extends BaseModel
     {
         return [
             'op_gravada' => 'decimal:2',
+            'op_exonerada' => 'decimal:2',
+            'op_inafecta' => 'decimal:2',
             'igv' => 'decimal:2',
             'total' => 'decimal:2',
             'monto_propina' => 'decimal:2',

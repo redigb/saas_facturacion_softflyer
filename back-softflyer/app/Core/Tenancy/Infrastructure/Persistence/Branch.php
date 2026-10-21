@@ -14,7 +14,7 @@ class Branch extends BaseModel
 
     protected function casts(): array
     {
-        return ['es_principal' => 'boolean', 'es_activa' => 'boolean'];
+        return ['es_principal' => 'boolean', 'es_activa' => 'boolean', 'exonerado_amazonia' => 'boolean'];
     }
 
     public function company(): BelongsTo

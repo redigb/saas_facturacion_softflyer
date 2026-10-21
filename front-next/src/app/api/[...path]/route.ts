@@ -51,7 +51,7 @@ async function forward(request: NextRequest, { params }: { params: Promise<{ pat
     const upstream = await fetch(`${API_URL}/api/v1/${path}${request.nextUrl.search}`, {
       method: request.method,
       headers,
-      body: request.method === "GET" || request.method === "HEAD" ? undefined : await request.text(),
+      body: request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer(),
       cache: "no-store",
     });
 

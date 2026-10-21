@@ -5,6 +5,7 @@ namespace App\Core\Sales\Application;
 use App\Core\Cash\Infrastructure\Persistence\CashSession;
 use App\Core\Iam\Infrastructure\Persistence\User;
 use App\Core\Sales\Infrastructure\Persistence\Payment;
+use App\Core\Tenancy\Application\BranchIgvPolicy;
 use App\Core\Sales\Infrastructure\Persistence\Sale;
 use App\Shared\Domain\Money;
 use App\Shared\Exceptions\BusinessException;
@@ -18,8 +19,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class RegisterSale
 {
-    /** IGV incluido en los precios de la carta. Todo se vende gravado hasta tener afectación por producto. */
-    private const IGV_RATE_PERCENT = 18;
+    private const GRAVADO = '10';
+
+    public function __construct(private readonly BranchIgvPolicy $igvPolicy) {}
 
     /**
      * @param  list<array{producto_id: int, descripcion: string, cantidad: string, total: string}>  $lines  `total` ya incluye IGV
@@ -44,14 +46,25 @@ final class RegisterSale
             );
         }
 
-        $igvByLine = array_map(fn (int $cents) => $cents - intdiv($cents * 100 + (100 + self::IGV_RATE_PERCENT) / 2, 100 + self::IGV_RATE_PERCENT), $lineTotals);
+        // Precios con IGV incluido. La tasa es la de la sucursal; una sucursal de la Amazonía vende exonerado lo gravado.
+        $rate = (int) round($this->igvPolicy->percent($branchId));
+        $affectations = $this->affectations($branchId, $lines);
+        $igvByLine = [];
+        $base = ['10' => 0, '20' => 0, '30' => 0];
+        foreach ($lineTotals as $index => $cents) {
+            $taxed = $affectations[$index]->codigo === self::GRAVADO;
+            $igvByLine[$index] = $taxed ? $cents - intdiv($cents * 100 + (100 + $rate) / 2, 100 + $rate) : 0;
+            $base[$affectations[$index]->codigo] = ($base[$affectations[$index]->codigo] ?? 0) + $cents - $igvByLine[$index];
+        }
         $igv = array_sum($igvByLine);
 
         $sale = Sale::create([
             'sucursal_id' => $branchId,
             'sesion_caja_id' => $session->id,
             'usuario_id' => $cashier->id,
-            'op_gravada' => Money::format($total - $igv),
+            'op_gravada' => Money::format($base['10']),
+            'op_exonerada' => Money::format($base['20']),
+            'op_inafecta' => Money::format($base['30']),
             'igv' => Money::format($igv),
             'total' => Money::format($total),
             'estado' => Sale::ISSUED,
@@ -66,6 +79,7 @@ final class RegisterSale
                 'venta_id' => $sale->id,
                 'producto_id' => $line['producto_id'],
                 'descripcion' => mb_substr($line['descripcion'], 0, 200),
+                'tipo_afectacion_igv_id' => $affectations[$index]->id,
                 'cantidad' => $line['cantidad'],
                 'precio_unitario' => Money::format((int) round($cents / ($quantity > 0 ? $quantity : 1))),
                 'igv' => Money::format($igvByLine[$index]),
@@ -86,6 +100,24 @@ final class RegisterSale
         }
 
         return $sale->load('payments');
+    }
+
+    /**
+     * Afectación de cada línea (catálogo 07), en el orden recibido.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     * @return list<object>
+     */
+    private function affectations(int $branchId, array $lines): array
+    {
+        $types = DB::table('tipos_afectacion_igv')->get()->keyBy('codigo');
+        $amazonia = $this->igvPolicy->amazoniaLegend($branchId) !== null;
+        $products = DB::table('productos')
+            ->join('tipos_afectacion_igv', 'tipos_afectacion_igv.id', '=', 'productos.tipo_afectacion_igv_id')
+            ->whereIn('productos.id', array_column($lines, 'producto_id'))
+            ->pluck('tipos_afectacion_igv.codigo', 'productos.id');
+
+        return array_map(fn (array $line) => $types[$this->igvPolicy->affectation($products[$line['producto_id']] ?? self::GRAVADO, $amazonia)], $lines);
     }
 
     /**

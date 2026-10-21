@@ -12,6 +12,31 @@ class Receipt extends BaseModel
 
     public const ISSUED = 'EMITIDO';
 
+    public const PENDING = 'PENDIENTE_ENVIO';
+
+    public const SENT = 'ENVIADO';
+
+    public const ACCEPTED = 'ACEPTADO';
+
+    public const OBSERVED = 'OBSERVADO';
+
+    public const REJECTED = 'RECHAZADO';
+
+    /** SUNAT lo registró pero no entregó el CDR en el plazo de consulta (final). */
+    public const NO_CDR = 'SIN_CDR';
+
+    /** No se pudo informar a SUNAT dentro del plazo (final). */
+    public const EXPIRED = 'VENCIDO';
+
+    // Por qué espera un PENDIENTE_ENVIO.
+    public const WAIT_SUNAT_DOWN = 'SUNAT_CAIDO';
+
+    public const WAIT_VERIFY = 'VERIFICAR';        // el envío pudo llegar: se consulta antes de reenviar
+
+    public const WAIT_CDR = 'CDR_PENDIENTE';       // SUNAT lo tiene: se consulta el CDR, no se reenvía
+
+    public const WAIT_CREDENTIALS = 'CREDENCIALES'; // pausado hasta que Softflyer corrija las credenciales
+
     protected $table = 'comprobantes';
 
     protected function casts(): array
@@ -19,6 +44,12 @@ class Receipt extends BaseModel
         return [
             'correlativo' => 'integer',
             'op_gravada' => 'decimal:2',
+            'op_exonerada' => 'decimal:2',
+            'op_inafecta' => 'decimal:2',
+            'intentos_envio' => 'integer',
+            'enviado_en' => 'datetime',
+            'registrado_en' => 'datetime',
+            'proximo_intento_en' => 'datetime',
             'igv' => 'decimal:2',
             'total' => 'decimal:2',
             'es_simulado' => 'boolean',

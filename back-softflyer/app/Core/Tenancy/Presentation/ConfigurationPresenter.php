@@ -37,6 +37,7 @@ final class ConfigurationPresenter
             'codigo_establecimiento' => $branch->codigo_establecimiento,
             'es_principal' => (bool) $branch->es_principal,
             'es_activa' => (bool) $branch->es_activa,
+            'exonerado_amazonia' => (bool) $branch->exonerado_amazonia,
         ])->values()->all();
     }
 

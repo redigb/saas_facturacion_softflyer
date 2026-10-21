@@ -12,4 +12,9 @@ class DigitalCertificate extends BaseModel
     protected $table = 'certificados_digitales';
 
     protected $hidden = ['pem_cifrado'];
+
+    protected function casts(): array
+    {
+        return ['vence_en' => 'date', 'es_activo' => 'boolean'];
+    }
 }

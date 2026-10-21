@@ -101,6 +101,58 @@ class ClientController
         return $this->ok();
     }
 
+    public function setHomologation(string $slug, Request $request): JsonResponse
+    {
+        $data = $request->validate(['homologado' => ['required', 'boolean']]);
+        $this->manage->setHomologation($this->client($slug), (bool) $data['homologado'], $request->user());
+
+        return $this->ok();
+    }
+
+    public function uploadCertificate(string $slug, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'certificado' => ['required', 'file', 'max:512'],
+            'contrasena' => ['nullable', 'string', 'max:200'],
+        ], ['certificado.required' => 'Sube el archivo del certificado.']);
+
+        $this->manage->uploadCertificate($this->client($slug), $request->file('certificado')->getContent(), (string) ($data['contrasena'] ?? ''), $request->user());
+
+        return $this->ok();
+    }
+
+    public function saveSolCredentials(string $slug, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'usuario_sol' => ['required', 'string', 'min:3', 'max:30'],
+            'clave_sol' => ['required', 'string', 'min:3', 'max:100'],
+        ], ['usuario_sol.required' => 'Escribe el usuario SOL.', 'clave_sol.required' => 'Escribe la clave SOL.']);
+
+        $this->manage->saveSolCredentials($this->client($slug), $data['usuario_sol'], $data['clave_sol'], $request->user());
+
+        return $this->ok();
+    }
+
+    public function setCompanyRate(string $slug, Request $request): JsonResponse
+    {
+        $data = $request->validate(['tasa_igv_id' => ['required', 'integer']], ['tasa_igv_id.required' => 'Elige una tasa.']);
+        $this->manage->setCompanyRate($this->client($slug), $data['tasa_igv_id'], $request->user());
+
+        return $this->ok();
+    }
+
+    public function setBranchTax(string $slug, int $branch, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'tasa_igv_id' => ['sometimes', 'nullable', 'integer'],
+            'exonerado_amazonia' => ['sometimes', 'boolean'],
+            'leyenda_amazonia' => ['sometimes', 'in:2001,2002'],
+        ], ['leyenda_amazonia.in' => 'La leyenda es 2001 (bienes) o 2002 (servicios).']);
+        $this->manage->setBranchTax($this->client($slug), $branch, $data, $request->user());
+
+        return $this->ok();
+    }
+
     public function pendingRegistrations(): JsonResponse
     {
         return response()->json(['data' => TrialRegistration::whereNull('verificado_en')

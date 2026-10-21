@@ -53,6 +53,21 @@ export default async function ClientPage({ params }: { params: Promise<{ slug: s
           </section>
 
           <section className={cardClass}>
+            <h2 className="text-lg font-bold text-tinta">Facturación electrónica</h2>
+            <dl className="mt-4 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+              <Item label="Estado" value={c.fiscal.listo_para_emitir ? "Lista para emitir" : "Falta configurar"} />
+              <Item label="Entorno" value={c.fiscal.entorno === "PRODUCCION" ? "Producción" : "Pruebas (beta)"} />
+              <Item
+                label="Certificado"
+                value={c.fiscal.certificado ? `${c.fiscal.certificado.titular ?? "Cargado"} · ${c.fiscal.certificado.vigente ? `vence ${formatDate(c.fiscal.certificado.vence_en)}` : "vencido"}` : null}
+              />
+              <Item label="Usuario SOL" value={c.fiscal.usuario_sol ? `${c.fiscal.usuario_sol}${c.fiscal.tiene_clave_sol ? " · clave guardada" : " · sin clave"}` : null} />
+              <Item label="Tasa de IGV" value={c.fiscal.tasa_igv ? `${c.fiscal.tasa_igv.nombre} · ${c.fiscal.tasa_igv.tasa}%` : null} />
+              <Item label="Homologado en SUNAT" value={c.fiscal.homologado ? "Sí" : "No"} />
+            </dl>
+          </section>
+
+          <section className={cardClass}>
             <h2 className="text-lg font-bold text-tinta">Historial de suscripciones</h2>
             <table className="mt-4 w-full text-left text-sm">
               <thead className="text-xs font-bold tracking-wide text-slate-500 uppercase">

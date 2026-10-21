@@ -28,6 +28,7 @@ export const branchSchema = z.object({
   codigo_establecimiento: z.string(),
   es_principal: z.boolean(),
   es_activa: z.boolean(),
+  exonerado_amazonia: z.boolean(),
 });
 
 export const branchesResponseSchema = z.object({

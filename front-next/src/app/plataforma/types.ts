@@ -20,7 +20,18 @@ export type Client = {
 export type ClientDetail = Client & {
   suscripciones: { plan: string; estado: string; fecha_inicio: string; fecha_vencimiento: string }[];
   usuarios_detalle: { id: number; nombre: string; correo: string; es_activo: boolean }[];
+  tasas_igv: { id: number; codigo: string; nombre: string; tasa: number }[];
+  sucursales_detalle: { id: number; nombre: string; tasa_igv_id: number | null; exonerado_amazonia: boolean; leyenda_amazonia: "2001" | "2002" }[];
   conteos: { mesas: number; productos: number; sucursales: number };
+  fiscal: {
+    certificado: { titular: string | null; vence_en: string; vigente: boolean; dias_restantes: number } | null;
+    usuario_sol: string | null;
+    tiene_clave_sol: boolean;
+    homologado: boolean;
+    entorno: "BETA" | "PRODUCCION";
+    tasa_igv: { id: number; codigo: string; nombre: string; tasa: number } | null;
+    listo_para_emitir: boolean;
+  };
   bitacora: { accion: string; detalle: Record<string, unknown>; administrador: string; creado_en: string }[];
 };
 

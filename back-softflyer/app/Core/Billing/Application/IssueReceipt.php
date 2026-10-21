@@ -2,22 +2,30 @@
 
 namespace App\Core\Billing\Application;
 
+use App\Core\Billing\Infrastructure\Jobs\SendReceiptJob;
 use App\Core\Billing\Infrastructure\Persistence\DocumentSeries;
 use App\Core\Billing\Infrastructure\Persistence\Receipt;
 use App\Core\Sales\Infrastructure\Persistence\Sale;
+use App\Core\Tenancy\Application\BranchIgvPolicy;
 use App\Core\Tenancy\Domain\Ruc;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Emite el comprobante de una venta (spec 010). Hoy es una SIMULACIÓN: numera y guarda,
- * sin XML, firma ni SUNAT. Al integrar Greenter este es el único punto que cambia
- * (Doc. 04): la emisión pasará a una cola y el cobro seguirá sin esperarla.
+ * Emite el comprobante de una venta (spec 010 y 017b). Numera y guarda al instante; si la
+ * empresa ya tiene certificado y SOL, el comprobante queda PENDIENTE_ENVIO y un Job lo firma
+ * y lo manda a SUNAT sin hacer esperar al cajero. Sin configuración fiscal sigue siendo una
+ * simulación (`es_simulado`) que nunca sale hacia SUNAT.
  *
  * Debe llamarse dentro de la transacción del cobro.
  */
 final class IssueReceipt
 {
+    /** Desde este total (S/) SUNAT exige identificar al comprador de una boleta. */
+    private const IDENTIFIED_BOLETA_FROM = 700;
+
+    public function __construct(private readonly ManageFiscalConfiguration $fiscal, private readonly BranchIgvPolicy $igvPolicy) {}
+
     public const INVOICE = '01';
 
     public const RECEIPT = '03';
@@ -29,7 +37,11 @@ final class IssueReceipt
      */
     public function handle(Sale $sale, ?array $customer): Receipt
     {
+        $real = $this->fiscal->status()['listo_para_emitir'];
         $customer = $this->customer($customer);
+        if ($real && $customer['tipo_documento'] === '-' && (float) $sale->total >= self::IDENTIFIED_BOLETA_FROM) {
+            throw ValidationException::withMessages(['cliente.numero' => ['Desde S/ 700 la boleta lleva el DNI del cliente.']]);
+        }
         $typeCode = $customer['tipo_documento'] === '6' ? self::INVOICE : self::RECEIPT;
 
         $typeId = (int) DB::table('tipos_comprobante')->where('codigo', $typeCode)->value('id');
@@ -39,7 +51,7 @@ final class IssueReceipt
         $number = $series->ultimo_correlativo + 1;
         $series->update(['ultimo_correlativo' => $number]);
 
-        return Receipt::create([
+        $receipt = Receipt::create([
             'empresa_id' => $companyId,
             'sucursal_id' => $sale->sucursal_id,
             'venta_id' => $sale->id,
@@ -50,12 +62,56 @@ final class IssueReceipt
             'cliente_numero_documento' => $customer['numero'],
             'cliente_nombre' => $customer['nombre'],
             'op_gravada' => $sale->op_gravada,
+            'op_exonerada' => $sale->op_exonerada,
+            'op_inafecta' => $sale->op_inafecta,
             'igv' => $sale->igv,
             'total' => $sale->total,
-            'estado' => Receipt::ISSUED,
-            'es_simulado' => true,
+            // La leyenda de la Amazonía va solo si hay algo exonerado; queda fija aunque la sucursal cambie después.
+            'leyenda_codigo' => (float) $sale->op_exonerada > 0 ? $this->igvPolicy->amazoniaLegend($sale->sucursal_id) : null,
+            'estado' => $real ? Receipt::PENDING : Receipt::ISSUED,
+            'es_simulado' => ! $real,
             'emitido_en' => now(),
         ]);
+
+        $this->copyLines($sale, $receipt);
+
+        if ($real) {
+            SendReceiptJob::dispatch((int) $receipt->inquilino_id, $receipt->id)->afterCommit();
+        }
+
+        return $receipt;
+    }
+
+    /** El detalle viaja con el comprobante: lo que se firma no cambia aunque la carta cambie después. */
+    private function copyLines(Sale $sale, Receipt $receipt): void
+    {
+        $rate = 1 + $this->igvPolicy->percent($receipt->sucursal_id) / 100;
+        $affectation = DB::table('tipos_afectacion_igv')->pluck('codigo', 'id');
+
+        $rows = DB::table('detalle_ventas')->where('venta_id', $sale->id)->orderBy('id')->get()->map(function ($line) use ($receipt, $rate, $affectation) {
+            $taxed = ($affectation[$line->tipo_afectacion_igv_id] ?? '10') === '10';
+            $quantity = (float) $line->cantidad > 0 ? (float) $line->cantidad : 1.0;
+            $value = (float) $line->total - (float) $line->igv;
+
+            return [
+                'inquilino_id' => $receipt->inquilino_id,
+                'comprobante_id' => $receipt->id,
+                'producto_id' => $line->producto_id,
+                'descripcion' => $line->descripcion,
+                'unidad_medida' => 'NIU',
+                'cantidad' => $line->cantidad,
+                'valor_unitario' => round($value / $quantity, 6),
+                'precio_unitario' => round((float) $line->total / $quantity, 6),
+                'tipo_afectacion_igv_id' => $line->tipo_afectacion_igv_id ?? DB::table('tipos_afectacion_igv')->where('codigo', '10')->value('id'),
+                'valor_venta' => round($value, 2),
+                'igv' => $line->igv,
+                'total' => $line->total,
+                'creado_en' => now(),
+                'actualizado_en' => now(),
+            ];
+        })->all();
+
+        DB::table('detalle_comprobantes')->insert($rows);
     }
 
     /** @return array{tipo_documento: string, numero: ?string, nombre: string} */

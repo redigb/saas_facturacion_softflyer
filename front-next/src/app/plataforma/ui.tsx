@@ -52,6 +52,11 @@ export const ACTION_LABELS: Record<string, string> = {
   CLIENTE_SUSPENDIDO: "Cliente suspendido",
   CLIENTE_REACTIVADO: "Cliente reactivado",
   ENLACE_REENVIADO: "Enlace reenviado",
+  HOMOLOGACION_ACTUALIZADA: "Homologación actualizada",
+  BLOQUEO_FISCAL_ACTUALIZADO: "Bloqueo fiscal actualizado",
+  CERTIFICADO_CARGADO: "Certificado cargado",
+  CREDENCIALES_SOL_ACTUALIZADAS: "Credenciales SOL actualizadas",
+  IGV_LOCAL_ACTUALIZADO: "IGV del local actualizado",
 };
 
 export const cardClass = "rounded-2xl border border-slate-200 bg-white p-6";

@@ -2,6 +2,7 @@
 
 namespace App\Platform\Application;
 
+use App\Core\Billing\Application\ManageFiscalConfiguration;
 use App\Core\Iam\Infrastructure\Persistence\User;
 use App\Core\Tenancy\Infrastructure\Persistence\Company;
 use App\Core\Tenancy\Infrastructure\Persistence\Subscription;
@@ -46,6 +47,15 @@ final class ClientDirectory
                 'estado' => $s->estado,
                 'fecha_inicio' => $s->fecha_inicio->toDateString(),
                 'fecha_vencimiento' => $s->fecha_vencimiento->toDateString(),
+            ])->all(),
+            'fiscal' => app(ManageFiscalConfiguration::class)->status(),
+            'tasas_igv' => app(ManageFiscalConfiguration::class)->rates(),
+            'sucursales_detalle' => DB::table('sucursales')->whereNull('eliminado_en')->orderBy('id')->get(['id', 'nombre', 'tasa_igv_id', 'exonerado_amazonia', 'leyenda_amazonia'])->map(fn ($row) => [
+                'id' => (int) $row->id,
+                'nombre' => $row->nombre,
+                'tasa_igv_id' => $row->tasa_igv_id === null ? null : (int) $row->tasa_igv_id,
+                'exonerado_amazonia' => (bool) $row->exonerado_amazonia,
+                'leyenda_amazonia' => $row->leyenda_amazonia,
             ])->all(),
             'usuarios_detalle' => User::orderBy('id')->get(['id', 'nombre', 'correo', 'es_activo'])->toArray(),
             'conteos' => (array) DB::selectOne(<<<'SQL'
