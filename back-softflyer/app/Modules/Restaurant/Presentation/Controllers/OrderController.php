@@ -29,7 +29,8 @@ class OrderController
     {
         $data = $request->validate([
             'sucursal_id' => ['sometimes', 'integer'],
-            'estado' => ['sometimes', 'string'],
+            'estado' => ['sometimes', 'string', 'regex:/^(ABIERTO|POR_COBRAR|CERRADO|ANULADO)(,(ABIERTO|POR_COBRAR|CERRADO|ANULADO))*$/'],
+            'fecha' => ['sometimes', 'date_format:Y-m-d'],
         ]);
         $user = $request->user();
         $branches = $user->branches()->modelKeys();
@@ -37,6 +38,7 @@ class OrderController
 
         $orders = Order::whereIn('sucursal_id', isset($data['sucursal_id']) ? array_intersect([(int) $data['sucursal_id']], $branches) : $branches)
             ->whereIn('estado', $statuses)
+            ->when(isset($data['fecha']), fn ($query) => $query->whereDate('fecha_operacion', $data['fecha']))
             ->orderBy('abierto_en')
             ->limit(500)
             ->get();

@@ -11,6 +11,7 @@ export const keys = {
   menu: ["carta"] as const,
   orders: ["pedidos"] as const,
   order: (id: number) => ["pedidos", id] as const,
+  overview: (date: string) => ["pedidos", "admin", date] as const,
 };
 
 /** La carta se descarga una vez y se renueva con el aviso CartaActualizada (spec 005). */
@@ -27,6 +28,15 @@ export function useActiveOrders() {
     queryKey: keys.orders,
     queryFn: async () => (await apiRequest("pedidos", dataOf(z.array(orderSummarySchema)))).data,
     staleTime: 15_000,
+  });
+}
+
+export function useOrdersOverview(date: string) {
+  return useQuery({
+    queryKey: keys.overview(date),
+    queryFn: async () =>
+      (await apiRequest(`pedidos?estado=ABIERTO,POR_COBRAR,CERRADO&fecha=${encodeURIComponent(date)}`, dataOf(z.array(orderSummarySchema)))).data,
+    refetchInterval: 15_000,
   });
 }
 
@@ -89,6 +99,7 @@ export function useOrderAction(orderId: number) {
 function updateOrder(queryClient: ReturnType<typeof useQueryClient>, order: Order) {
   queryClient.setQueryData(keys.order(order.id), order);
   void queryClient.invalidateQueries({ queryKey: keys.orders, exact: true });
+  void queryClient.invalidateQueries({ queryKey: ["pedidos", "admin"] });
 }
 
 const FINISHED_ORDER_STATES = ["CERRADO", "ANULADO"];
@@ -108,6 +119,7 @@ export async function applyOrderEvent(
   if (event.estado && FINISHED_ORDER_STATES.includes(event.estado)) {
     queryClient.setQueryData<OrderSummary[]>(keys.orders, (list) => list?.filter((order) => order.id !== id));
     void queryClient.invalidateQueries({ queryKey: keys.order(id) });
+    void queryClient.invalidateQueries({ queryKey: ["pedidos", "admin"] });
     return;
   }
 
@@ -131,10 +143,11 @@ function upsertSummary(list: OrderSummary[], order: Order): OrderSummary[] {
 
   const items = order.detalles.filter((item) => !item.anulado);
   const summary: OrderSummary = {
-    ...orderSummarySchema.omit({ platos: true, pendientes: true, listos: true }).parse(order),
+    ...orderSummarySchema.omit({ platos: true, pendientes: true, listos: true, detalles_resumen: true }).parse(order),
     platos: items.length,
     pendientes: items.filter((item) => item.estado_cocina === "PENDIENTE" || item.estado_cocina === "EN_PREPARACION").length,
     listos: items.filter((item) => item.estado_cocina === "LISTO").length,
+    detalles_resumen: items.map((item) => ({ id: item.id, nombre: item.nombre, cantidad: item.cantidad, subtotal: item.subtotal })),
   };
 
   return list.some((item) => item.id === order.id)

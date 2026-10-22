@@ -88,6 +88,7 @@ class KitchenController
         return [
             'id' => $ticket->id,
             'numero' => $ticket->numero,
+            'es_agregado' => $ticket->es_agregado,
             'estacion_preparacion_id' => $ticket->estacion_preparacion_id,
             'enviada_en' => $ticket->enviada_en->utc()->toIso8601ZuluString(),
             'enviada_por' => $ticket->sender?->nombre,

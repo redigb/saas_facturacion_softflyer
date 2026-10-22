@@ -4,10 +4,13 @@ use App\Modules\Restaurant\Application\GetDashboardSummary;
 use App\Modules\Restaurant\Presentation\Controllers\CategoryController;
 use App\Modules\Restaurant\Presentation\Controllers\ChargeController;
 use App\Modules\Restaurant\Presentation\Controllers\DiningRoomController;
+use App\Modules\Restaurant\Presentation\Controllers\KitchenAccessController;
 use App\Modules\Restaurant\Presentation\Controllers\KitchenController;
+use App\Modules\Restaurant\Presentation\Controllers\InventoryController;
 use App\Modules\Restaurant\Presentation\Controllers\MenuController;
 use App\Modules\Restaurant\Presentation\Controllers\ModifierGroupController;
 use App\Modules\Restaurant\Presentation\Controllers\OrderController;
+use App\Modules\Restaurant\Presentation\Controllers\PreparationController;
 use App\Modules\Restaurant\Presentation\Controllers\ProductController;
 use App\Modules\Restaurant\Presentation\Controllers\StationController;
 use Illuminate\Support\Facades\Route;
@@ -72,8 +75,25 @@ Route::middleware(['inquilino', 'auth:sanctum', 'cuenta.vigente'])->group(functi
     Route::post('/pedidos/{order}/anular', [OrderController::class, 'cancel'])->middleware('permiso:restaurante.pedidos.crear');
 
     // Cocina (spec 007). El mozo solo puede marcar "entregado"; lo afina KitchenBoard.
+    Route::get('/cocina/estaciones', [KitchenAccessController::class, 'stations'])->middleware('permiso:restaurante.cocina.actualizar_estado|panel.ver');
+    Route::get('/cocina/accesos/{user}', [KitchenAccessController::class, 'show'])->middleware('permiso:usuarios.editar');
+    Route::put('/cocina/accesos/{user}', [KitchenAccessController::class, 'update'])->middleware('permiso:usuarios.editar');
     Route::get('/cocina/comandas', [KitchenController::class, 'index'])->middleware('permiso:restaurante.cocina.actualizar_estado|panel.ver');
     Route::patch('/cocina/detalles/{item}', [KitchenController::class, 'updateItem'])->middleware('permiso:restaurante.cocina.actualizar_estado|restaurante.pedidos.crear');
     Route::post('/cocina/comandas/{ticket}/listo', [KitchenController::class, 'ticketReady'])->middleware('permiso:restaurante.cocina.actualizar_estado');
     Route::post('/cocina/comandas/{ticket}/impresa', [KitchenController::class, 'printed'])->middleware('permiso:restaurante.cocina.actualizar_estado|panel.ver');
+
+    // Preparación (spec 031): recetas operativas filtradas por la misma estación del KDS.
+    Route::get('/preparaciones', [PreparationController::class, 'index'])->middleware('permiso:restaurante.cocina.actualizar_estado|panel.ver');
+    Route::get('/preparaciones/{product}', [PreparationController::class, 'show'])->middleware('permiso:restaurante.cocina.actualizar_estado|panel.ver');
+    Route::put('/preparaciones/{product}', [PreparationController::class, 'update'])->middleware('permiso:restaurante.cocina.actualizar_estado|panel.ver');
+
+    // Inventario (spec 014): admin ve todo; Cocina/Barra solo sus almacenes KDS.
+    Route::get('/inventario', [InventoryController::class, 'index'])->middleware('permiso:inventario.ver');
+    Route::get('/inventario/catalogos', [InventoryController::class, 'catalogs'])->middleware('permiso:inventario.ver');
+    Route::get('/inventario/kardex', [InventoryController::class, 'ledger'])->middleware('permiso:inventario.ver');
+    Route::post('/inventario/articulos', [InventoryController::class, 'storeItem'])->middleware('permiso:inventario.administrar');
+    Route::patch('/inventario/articulos/{product}', [InventoryController::class, 'updateItem'])->middleware('permiso:inventario.administrar');
+    Route::post('/inventario/movimientos', [InventoryController::class, 'movement'])->middleware(['permiso:inventario.ajustar', 'idempotente']);
+    Route::post('/inventario/conteos', [InventoryController::class, 'count'])->middleware(['permiso:inventario.ajustar', 'idempotente']);
 });

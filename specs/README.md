@@ -47,7 +47,7 @@ Para crear una nueva, copia [`_plantilla/`](_plantilla/) con el siguiente númer
 | [011-empresa-sucursales](011-empresa-sucursales/spec.md) | Config | ✅ | ✅ | Cerrada |
 | 012-caja-series-cobro | Config | ⚪ | ⚪ | Planificada |
 | 013-accesos-perfil | Config | ⚪ | ⚪ | Planificada |
-| 014-inventario-simple | H4a | ⚪ | ⚪ | Planificada |
+| [014-inventario-integral](014-inventario-integral/spec.md) | H4 | ✅ | ✅ | Cerrada |
 | 015-ventas-reportes | Config | ⚪ | ⚪ | Planificada |
 | 016-preview-sistema | Cierre | ⚪ | ⚪ | Planificada |
 | [017-facturacion-greenter](017-facturacion-greenter/spec.md) | H3 | ⚪ | ⚪ | Pendiente de diseño |
@@ -62,6 +62,12 @@ Para crear una nueva, copia [`_plantilla/`](_plantilla/) con el siguiente númer
 | [026-lupa-del-plato](026-lupa-del-plato/spec.md) | H1 (mejora) | ➖ | ✅ | Cerrada |
 | [027-impresion-de-comandas](027-impresion-de-comandas/spec.md) | H1 (pedido por el negocio) | ✅ | ✅ | Cerrada |
 | [028-agente-local-impresion](028-agente-local-impresion/spec.md) | H1 (Fase 2) | ⚪ | ⚪ | Pendiente de diseño |
+| [029-comandas-agregadas](029-comandas-agregadas/spec.md) | H1 (mejora operativa) | ✅ | ✅ | Cerrada |
+| [030-acceso-kds-por-estacion](030-acceso-kds-por-estacion/spec.md) | H1 (seguridad operativa) | ✅ | ✅ | Cerrada |
+| [031-preparacion-recetas](031-preparacion-recetas/spec.md) | H4b (preparación) | ✅ | ✅ | Cerrada |
+| [032-asistencia-geolocalizada](032-asistencia-geolocalizada/spec.md) | Personal (asistencia) | ✅ | ✅ | Cerrada |
+| [033-panel-operativo-caja](033-panel-operativo-caja/spec.md) | H2 (mejora de Caja) | ✅ | ✅ | Cerrada |
+| [034-ordenes-administrador](034-ordenes-administrador/spec.md) | H2 (mejora operativa) | ✅ | ✅ | Cerrada |
 
 ## Hoja de ruta: configuración general y preview
 
@@ -72,7 +78,7 @@ Objetivo: un sistema completo para mostrar al cliente, con **solo la facturació
 | 011 empresa y sucursales | `/panel/configuracion`: datos fiscales (RUC válido, razón social, dirección) y alta/edición de sucursales con su principal; respeta los límites del plan |
 | 012 caja, series y cobro | Gestión de cajas y de series de comprobantes; métodos de pago activos por local; opciones de cobro |
 | 013 accesos y perfil | Matriz de roles y permisos; "Mi perfil" (contraseña y PIN propio) |
-| 014 inventario simple | Stock por producto, ajustes y movimientos, descuento al cobrar, alerta de stock bajo, pantalla Inventario |
+| 014 inventario integral | Insumos, alimentos, bebidas y objetos/utensilios; conteos por Cocina y Barra, entradas, salidas, ajustes, mermas, stock bajo y kardex por almacén |
 | 015 ventas y reportes | "Hoy en tu local" real, historial de ventas y comprobantes, resúmenes por método, mozo y plato |
 | 016 preview del sistema | Datos de demostración coherentes (ventas, turnos, comprobantes, stock), checklist del Inicio actualizado, recorrido guiado, QA de punta a punta |
 | 017 facturación Greenter | Emisión real a SUNAT; pendiente de diseño (decisiones abiertas en su `spec.md`) |

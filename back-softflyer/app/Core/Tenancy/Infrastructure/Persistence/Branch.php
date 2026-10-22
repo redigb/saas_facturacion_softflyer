@@ -14,7 +14,13 @@ class Branch extends BaseModel
 
     protected function casts(): array
     {
-        return ['es_principal' => 'boolean', 'es_activa' => 'boolean'];
+        return [
+            'es_principal' => 'boolean',
+            'es_activa' => 'boolean',
+            'latitud' => 'float',
+            'longitud' => 'float',
+            'radio_geocerca_metros' => 'integer',
+        ];
     }
 
     public function company(): BelongsTo

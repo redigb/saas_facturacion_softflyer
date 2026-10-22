@@ -21,8 +21,10 @@ export const NAVIGATION: NavSection[] = [
     items: [
       { label: "Plano del salón", icon: "plano", href: "/panel/plano", permisos: ["restaurante.plano.editar"] },
       { label: "Pedidos", icon: "pedidos", href: "/panel/pedidos", permisos: ["restaurante.pedidos.crear"] },
-      { label: "Mis órdenes", icon: "lista", href: "/panel/mis-pedidos", permisos: ["restaurante.pedidos.crear"] },
-      { label: "Cocina", icon: "cocina", href: "/panel/cocina", permisos: ["restaurante.cocina.actualizar_estado"] },
+      { label: "Mis órdenes", icon: "lista", href: "/panel/mis-pedidos", permisos: ["restaurante.pedidos.crear", "panel.ver"] },
+      { label: "KDS", icon: "cocina", href: "/panel/cocina", permisos: ["restaurante.cocina.actualizar_estado"] },
+      { label: "Preparación", icon: "plato", href: "/panel/preparacion", permisos: ["restaurante.cocina.actualizar_estado", "panel.ver"] },
+      { label: "Asistencia", icon: "calendario", href: "/panel/asistencia", permisos: ["asistencia.marcar", "asistencia.administrar"] },
       { label: "Caja", icon: "caja", href: "/panel/caja", permisos: ["caja.abrir"] },
     ],
   },
@@ -30,7 +32,7 @@ export const NAVIGATION: NavSection[] = [
     title: "Gestión",
     items: [
       { label: "Carta", icon: "carta", href: "/panel/carta", permisos: ["productos.crear", "productos.editar", "productos.eliminar", "restaurante.pedidos.crear"] },
-      { label: "Inventario", icon: "inventario", permisos: ["inventario.ver"] },
+      { label: "Inventario", icon: "inventario", href: "/panel/inventario", permisos: ["inventario.ver"] },
       { label: "Facturación", icon: "facturacion", permisos: ["comprobantes.emitir"] },
     ],
   },
@@ -52,9 +54,9 @@ export function visibleNavigation(permisos: string[]): NavSection[] {
 
   return NAVIGATION.map((section) => ({
     ...section,
-    items: section.items.filter(
-      (item) => item.permisos.some((permiso) => permisos.includes(permiso)) && (item.href !== undefined || canSeeRoadmap),
-    ),
+    items: section.items
+      .filter((item) => item.permisos.some((permiso) => permisos.includes(permiso)) && (item.href !== undefined || canSeeRoadmap))
+      .map((item) => (item.href === "/panel/mis-pedidos" && canSeeRoadmap ? { ...item, label: "Órdenes" } : item)),
   })).filter((section) => section.items.length > 0);
 }
 

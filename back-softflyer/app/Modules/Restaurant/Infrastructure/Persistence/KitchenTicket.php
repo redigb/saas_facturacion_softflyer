@@ -19,7 +19,7 @@ class KitchenTicket extends BaseModel
 
     protected function casts(): array
     {
-        return ['numero' => 'integer', 'enviada_en' => 'datetime', 'impresa_en' => 'datetime'];
+        return ['numero' => 'integer', 'es_agregado' => 'boolean', 'enviada_en' => 'datetime', 'impresa_en' => 'datetime'];
     }
 
     public function order(): BelongsTo

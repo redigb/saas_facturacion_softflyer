@@ -37,6 +37,11 @@ final class ConfigurationPresenter
             'codigo_establecimiento' => $branch->codigo_establecimiento,
             'es_principal' => (bool) $branch->es_principal,
             'es_activa' => (bool) $branch->es_activa,
+            'geocerca' => $branch->latitud === null ? null : [
+                'latitud' => (float) $branch->latitud,
+                'longitud' => (float) $branch->longitud,
+                'radio_metros' => (int) $branch->radio_geocerca_metros,
+            ],
         ])->values()->all();
     }
 

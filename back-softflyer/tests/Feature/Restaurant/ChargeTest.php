@@ -3,6 +3,7 @@
 namespace Tests\Feature\Restaurant;
 
 use App\Core\Cash\Infrastructure\Realtime\CashUpdated;
+use App\Core\Iam\Infrastructure\Persistence\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
@@ -28,6 +29,14 @@ class ChargeTest extends DatabaseTestCase
         $this->buildRestaurant();
         $this->cashier = $this->user('Cajero', 'caja@donjose.pe');
         $this->methods = DB::table('metodos_pago')->pluck('id', 'codigo')->all();
+    }
+
+    public function test_operational_payment_methods_are_available_for_the_modal(): void
+    {
+        $this->as($this->cashier, 'GET', 'metodos-pago')
+            ->assertOk()
+            ->assertJsonFragment(['codigo' => 'PERSONAL', 'nombre' => 'Personal', 'es_efectivo' => false])
+            ->assertJsonFragment(['codigo' => 'APPS_DELIVERY', 'nombre' => 'Apps de delivery', 'es_efectivo' => false]);
     }
 
     public function test_cashier_opens_one_turn_and_cannot_open_a_second(): void
@@ -162,20 +171,34 @@ class ChargeTest extends DatabaseTestCase
             ['metodo_pago_id' => $this->methods['YAPE'], 'monto' => 10],
         ])->assertCreated();
 
-        $this->as($this->cashier, 'POST', "sesiones-caja/{$session}/movimientos", ['tipo' => 'INGRESO', 'monto' => 20, 'concepto' => 'Sencillo'])->assertCreated();
-        $this->as($this->cashier, 'POST', "sesiones-caja/{$session}/movimientos", ['tipo' => 'EGRESO', 'monto' => 5, 'concepto' => 'Compra de gas'])
-            ->assertCreated()->assertJsonPath('data.efectivo_esperado', '135.00');
+        $this->as($this->cashier, 'POST', "sesiones-caja/{$session}/movimientos", ['tipo' => 'INGRESO', 'monto' => 20, 'concepto' => 'Sencillo', 'categoria' => 'INGRESO'])->assertCreated();
+        $this->as($this->cashier, 'POST', "sesiones-caja/{$session}/movimientos", ['tipo' => 'EGRESO', 'monto' => 5, 'concepto' => 'Compra de gas', 'categoria' => 'SERVICIOS'])
+            ->assertCreated()->assertJsonPath('data.categoria', 'SERVICIOS')->assertJsonPath('data.efectivo_esperado', '135.00');
+        $this->as($this->cashier, 'POST', "sesiones-caja/{$session}/movimientos", ['tipo' => 'EGRESO', 'monto' => 1, 'concepto' => 'No válido', 'categoria' => 'INVENTADA'])
+            ->assertUnprocessable();
 
         $this->as($this->cashier, 'GET', "sesiones-caja/{$session}/resumen")->assertOk()
             ->assertJsonPath('data.resumen.efectivo_esperado', '135.00')
             ->assertJsonPath('data.resumen.ventas.total', '30.00')
+            ->assertJsonPath('data.resumen.ticket_promedio', '30.00')
+            ->assertJsonPath('data.resumen.ultima_venta.monto', '30.00')
             ->assertJsonCount(2, 'data.resumen.por_metodo')
+            ->assertJsonCount(1, 'data.resumen.ventas_por_hora')
+            ->assertJsonCount(1, 'data.resumen.ordenes')
+            ->assertJsonPath('data.resumen.ordenes.0.numero', 1)
+            ->assertJsonPath('data.resumen.ordenes.0.items', 5)
+            ->assertJsonPath('data.movimientos.1.categoria', 'SERVICIOS')
             ->assertJsonCount(2, 'data.movimientos');
 
         $this->as($this->cashier, 'POST', "sesiones-caja/{$session}/cierre", ['monto_cierre_declarado' => 130])->assertOk()
             ->assertJsonPath('data.estado', 'CERRADA')
             ->assertJsonPath('data.monto_cierre_calculado', '135.00')
             ->assertJsonPath('data.diferencia', '-5.00');
+
+        $this->as($this->cashier, 'GET', 'sesiones-caja/historial?limite=5')->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $session)
+            ->assertJsonPath('data.0.resumen.ventas.total', '30.00');
 
         $this->as($this->cashier, 'POST', "sesiones-caja/{$session}/movimientos", ['tipo' => 'INGRESO', 'monto' => 1, 'concepto' => 'Tarde'])
             ->assertStatus(409)->assertJsonPath('error.codigo', 'SESION_CERRADA');
@@ -197,7 +220,7 @@ class ChargeTest extends DatabaseTestCase
             'nombre' => 'Segundo local',
         ]));
         $branchCashier = $this->asTenant(function () use ($second) {
-            $user = \App\Core\Iam\Infrastructure\Persistence\User::create(['nombre' => 'Cajera B', 'correo' => 'cajab@donjose.pe', 'contrasena' => 'contrasena-segura']);
+            $user = User::create(['nombre' => 'Cajera B', 'correo' => 'cajab@donjose.pe', 'contrasena' => 'contrasena-segura']);
             DB::table('rol_usuario')->insert([
                 'inquilino_id' => $this->tenant->id,
                 'usuario_id' => $user->id,

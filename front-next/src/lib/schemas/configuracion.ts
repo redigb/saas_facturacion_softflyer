@@ -28,6 +28,11 @@ export const branchSchema = z.object({
   codigo_establecimiento: z.string(),
   es_principal: z.boolean(),
   es_activa: z.boolean(),
+  geocerca: z.object({
+    latitud: z.number(),
+    longitud: z.number(),
+    radio_metros: z.number(),
+  }).nullable(),
 });
 
 export const branchesResponseSchema = z.object({

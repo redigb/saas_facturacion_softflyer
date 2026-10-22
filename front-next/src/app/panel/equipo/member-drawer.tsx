@@ -1,12 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
-import { errorMessage } from "@/app/panel/carta/queries";
+import { errorMessage, useStations } from "@/app/panel/carta/queries";
 import { applyApiErrors, Drawer, Field } from "@/app/panel/carta/ui";
-import { useSaveMember, useSetPin } from "@/app/panel/equipo/queries";
+import { useKitchenAccess, useSaveKitchenAccess, useSaveMember, useSetPin } from "@/app/panel/equipo/queries";
 import type { TeamPermissions } from "@/app/panel/equipo/team-view";
 import { useToast } from "@/app/panel/providers";
 import { Icon } from "@/components/icons";
@@ -32,6 +32,12 @@ export function MemberDrawer({ open, member, roles, can, onClose }: Props) {
   const isNew = member === undefined;
   const [showPassword, setShowPassword] = useState(isNew);
   const [access, setAccess] = useState<Access | null>(null);
+  const [stationKeys, setStationKeys] = useState<Set<string>>(new Set());
+  const [stationError, setStationError] = useState<string | null>(null);
+  const stations = useStations();
+  const kitchenAccess = useKitchenAccess(!isNew && can.manageKitchenAccess ? member.id : null);
+  const saveKitchenAccess = useSaveKitchenAccess();
+  const initializedKitchenAccess = useRef(false);
 
   // La contraseña es obligatoria al crear; al editar, vacía significa "no cambiarla".
   const schema = useMemo(
@@ -55,9 +61,32 @@ export function MemberDrawer({ open, member, roles, can, onClose }: Props) {
     } satisfies MemberFormValues,
   });
   const selectedRole = useWatch({ control, name: "rol_id" });
+  const selectedRoleDefinition = roles.find((role) => String(role.id) === selectedRole);
+  const selectedRoleUsesKitchen = selectedRoleDefinition?.permisos.includes("restaurante.cocina.actualizar_estado") ?? false;
+  const previousRoleUsedKitchen = member?.roles.some((assigned) => roles.find((role) => role.id === assigned.id)?.permisos.includes("restaurante.cocina.actualizar_estado")) ?? false;
+  const kitchenConfigurationLoading = selectedRoleUsesKitchen && can.manageKitchenAccess && (stations.isPending || (!isNew && kitchenAccess.isPending));
   const errors = formState.errors;
 
+  useEffect(() => {
+    if (initializedKitchenAccess.current || !kitchenAccess.data) return;
+    initializedKitchenAccess.current = true;
+    setStationKeys(new Set([
+      ...kitchenAccess.data.estacion_ids.map(String),
+      ...(kitchenAccess.data.general ? ["general"] : []),
+    ]));
+  }, [kitchenAccess.data]);
+
   async function submit(values: MemberFormValues) {
+    if (kitchenConfigurationLoading) return;
+    if (selectedRoleUsesKitchen && can.manageKitchenAccess && (stations.isError || kitchenAccess.isError)) {
+      setStationError("No pudimos cargar las estaciones. Inténtalo nuevamente.");
+      return;
+    }
+    if (selectedRoleUsesKitchen && can.manageKitchenAccess && stationKeys.size === 0) {
+      setStationError("Asigna al menos una estación o la bandeja General.");
+      return;
+    }
+
     const roleChanged = !isNew && String(member.roles[0]?.id ?? "") !== values.rol_id;
     const body: Record<string, unknown> = { nombre: values.nombre.trim(), correo: values.correo.trim() };
     if (isNew || values.contrasena) body.contrasena = values.contrasena;
@@ -65,7 +94,23 @@ export function MemberDrawer({ open, member, roles, can, onClose }: Props) {
     if (isNew && values.pin) body.pin = values.pin;
 
     try {
-      await save.mutateAsync({ id: member?.id, body });
+      const saved = await save.mutateAsync({ id: member?.id, body });
+
+      if (can.manageKitchenAccess && (selectedRoleUsesKitchen || previousRoleUsedKitchen)) {
+        try {
+          const keys = selectedRoleUsesKitchen ? stationKeys : new Set<string>();
+          await saveKitchenAccess.mutateAsync({
+            userId: saved.data.id,
+            stationIds: [...keys].filter((key) => key !== "general").map(Number),
+            general: keys.has("general"),
+          });
+        } catch (error) {
+          toast({ tone: "error", message: `La persona se guardó, pero no pudimos guardar sus estaciones KDS: ${errorMessage(error)}` });
+          onClose();
+          return;
+        }
+      }
+
       if (isNew || values.contrasena) {
         // Única vez que se muestran los datos de acceso: para pasárselos a la persona.
         setAccess({ correo: values.correo.trim(), contrasena: values.contrasena, pin: values.pin || undefined });
@@ -82,6 +127,16 @@ export function MemberDrawer({ open, member, roles, can, onClose }: Props) {
     }
   }
 
+  function updateStationSelection(key: string, checked: boolean) {
+    setStationKeys((current) => {
+      const next = new Set(current);
+      if (checked) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+    setStationError(null);
+  }
+
   if (access) {
     return (
       <Drawer title="Datos de acceso" open={open} onClose={onClose} footer={<Button onClick={onClose}>Listo</Button>}>
@@ -96,7 +151,7 @@ export function MemberDrawer({ open, member, roles, can, onClose }: Props) {
       open={open}
       onClose={onClose}
       footer={
-        <Button type="submit" form="miembro-form" isLoading={formState.isSubmitting}>
+        <Button type="submit" form="miembro-form" isLoading={formState.isSubmitting || kitchenConfigurationLoading}>
           {formState.isSubmitting ? "Guardando…" : isNew ? "Agregar" : "Guardar"}
         </Button>
       }
@@ -136,6 +191,37 @@ export function MemberDrawer({ open, member, roles, can, onClose }: Props) {
           )}
           {errors.rol_id && <p className="mt-1.5 text-xs font-semibold text-red-600">{errors.rol_id.message}</p>}
         </fieldset>
+
+        {selectedRoleUsesKitchen && can.manageKitchenAccess && (
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-bold text-tinta">Estaciones KDS</legend>
+            <p className="mb-2 text-xs text-slate-500">Solo verá y podrá operar las comandas de las estaciones elegidas.</p>
+            {kitchenConfigurationLoading ? (
+              <p className="rounded-xl bg-niebla px-4 py-3 text-sm font-semibold text-slate-500">Cargando estaciones…</p>
+            ) : stations.isError || kitchenAccess.isError ? (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">No pudimos cargar las estaciones.</p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(stations.data ?? []).filter((station) => station.es_activa).map((station) => (
+                  <KitchenStationOption
+                    key={station.id}
+                    value={String(station.id)}
+                    label={station.nombre}
+                    checked={stationKeys.has(String(station.id))}
+                    onChange={(checked) => updateStationSelection(String(station.id), checked)}
+                  />
+                ))}
+                <KitchenStationOption
+                  value="general"
+                  label="General (sin estación)"
+                  checked={stationKeys.has("general")}
+                  onChange={(checked) => updateStationSelection("general", checked)}
+                />
+              </div>
+            )}
+            {stationError && <p className="mt-1.5 text-xs font-semibold text-red-600">{stationError}</p>}
+          </fieldset>
+        )}
 
         <Field
           label={isNew ? "Contraseña" : "Nueva contraseña"}
@@ -180,6 +266,15 @@ export function MemberDrawer({ open, member, roles, can, onClose }: Props) {
         )}
       </form>
     </Drawer>
+  );
+}
+
+function KitchenStationOption({ value, label, checked, onChange }: { value: string; label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-2.5 font-semibold transition-all active:scale-[0.99] ${checked ? "border-azul bg-azul/5 ring-2 ring-azul/15" : "border-slate-200 hover:border-slate-300"}`}>
+      <input type="checkbox" value={value} checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-5 w-5 shrink-0 accent-azul" />
+      <span className="text-sm text-tinta">{label}</span>
+    </label>
   );
 }
 

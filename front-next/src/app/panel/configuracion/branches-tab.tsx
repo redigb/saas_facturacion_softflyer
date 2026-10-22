@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -12,6 +13,8 @@ import { useToast } from "@/app/panel/providers";
 import { Icon } from "@/components/icons";
 import { Badge, Button, Input } from "@/components/ui";
 import { branchFormSchema, ubigeoLabel, type Branch, type BranchFormValues, type Ubigeo } from "@/lib/schemas/configuracion";
+
+const GeofenceMap = dynamic(() => import("@/app/panel/configuracion/geofence-map"), { ssr: false });
 
 /** Sucursales del restaurante (spec 011): alta, edición, principal y activar/desactivar. */
 export function BranchesTab() {
@@ -87,6 +90,9 @@ export function BranchesTab() {
                   {branch.ubigeo ? ubigeoLabel(branch.ubigeo) : "Sin distrito"} · Establecimiento{" "}
                   <span className="tabular-nums">{branch.codigo_establecimiento}</span>
                 </p>
+                <p className={`mt-2 text-xs font-semibold ${branch.geocerca ? "text-emerald-700" : "text-amber-700"}`}>
+                  {branch.geocerca ? `Asistencia GPS · radio ${branch.geocerca.radio_metros} m` : "Asistencia GPS sin configurar"}
+                </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
                 {branch.es_principal ? <Badge variant="info">Principal</Badge> : null}
@@ -135,6 +141,7 @@ function BranchDrawer({ branch, onClose }: { branch?: Branch; onClose: () => voi
   const save = useSaveBranch();
   const isNew = branch === undefined;
   const [ubigeo, setUbigeo] = useState<Ubigeo | null>(branch?.ubigeo ?? null);
+  const [geofence, setGeofence] = useState(branch?.geocerca ?? null);
 
   const { register, handleSubmit, formState, setError } = useForm<BranchFormValues>({
     resolver: zodResolver(branchFormSchema),
@@ -151,6 +158,9 @@ function BranchDrawer({ branch, onClose }: { branch?: Branch; onClose: () => voi
       nombre: values.nombre,
       direccion: values.direccion === "" ? null : values.direccion,
       ubigeo_id: ubigeo?.id ?? null,
+      latitud: geofence?.latitud ?? null,
+      longitud: geofence?.longitud ?? null,
+      radio_geocerca_metros: geofence?.radio_metros ?? null,
     };
     if (values.codigo_establecimiento !== "") body.codigo_establecimiento = values.codigo_establecimiento;
 
@@ -187,6 +197,10 @@ function BranchDrawer({ branch, onClose }: { branch?: Branch; onClose: () => voi
 
         <Field label="Distrito" hint="Escribe al menos 2 letras y elige de la lista.">
           {(id) => <UbigeoPicker id={id} value={ubigeo} onChange={setUbigeo} />}
+        </Field>
+
+        <Field label="Zona para marcar asistencia" hint="El GPS solo se solicita cuando el trabajador pulsa Marcar. El círculo azul es la zona permitida.">
+          {() => <GeofenceMap value={geofence} onChange={setGeofence} />}
         </Field>
 
         <Field

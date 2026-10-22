@@ -110,6 +110,9 @@ final class ManageOrders
                 throw new BusinessException('PEDIDO_NO_ABIERTO', 'Este pedido ya no acepta platos. Reábrelo si el cliente pide algo más.');
             }
 
+            // Spec 029: la marca pertenece al envío completo, no al correlativo de
+            // una estación. Así una estación nueva también recibe "AGREGÓ".
+            $isAddition = KitchenTicket::where('pedido_id', $order->id)->exists();
             $tickets = [];
             foreach (collect($lines)->groupBy(fn (array $line) => $line['estacion_id'] ?? 0) as $stationKey => $group) {
                 $stationId = $stationKey === 0 ? null : (int) $stationKey;
@@ -121,6 +124,7 @@ final class ManageOrders
                     'pedido_id' => $order->id,
                     'estacion_preparacion_id' => $stationId,
                     'numero' => $number,
+                    'es_agregado' => $isAddition,
                     'enviada_por' => $waiter->id,
                     'enviada_en' => now(),
                 ]);

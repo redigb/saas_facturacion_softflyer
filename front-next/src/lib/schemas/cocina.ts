@@ -7,6 +7,7 @@ import { kitchenStates } from "@/lib/schemas/pedidos";
 export const ticketSchema = z.object({
   id: z.number(),
   numero: z.number(),
+  es_agregado: z.boolean(),
   estacion_preparacion_id: z.number().nullable(),
   enviada_en: z.string(),
   enviada_por: z.string().nullable(),
@@ -34,6 +35,20 @@ export const ticketSchema = z.object({
 
 export type Ticket = z.infer<typeof ticketSchema>;
 export type KitchenState = (typeof kitchenStates)[number];
+
+export const kitchenStationSchema = z.object({
+  id: z.union([z.number(), z.literal("general")]),
+  nombre: z.string(),
+});
+
+export const kitchenAccessSchema = z.object({
+  usuario_id: z.number(),
+  estacion_ids: z.array(z.number()),
+  general: z.boolean(),
+});
+
+export type KitchenStation = z.infer<typeof kitchenStationSchema>;
+export type KitchenAccess = z.infer<typeof kitchenAccessSchema>;
 
 /** Siguiente estado al tocar un plato en el KDS: en cola → preparando → listo. */
 export function nextKitchenState(state: KitchenState): "EN_PREPARACION" | "LISTO" | null {

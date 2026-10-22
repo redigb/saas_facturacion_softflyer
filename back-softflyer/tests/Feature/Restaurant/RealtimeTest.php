@@ -74,14 +74,14 @@ class RealtimeTest extends DatabaseTestCase
         $waiter = $this->user('Mozo', 'mozo@donjose.pe', branch: $this->branch);
         $waiterId = $this->asTenant($this->tenant, fn () => User::where('correo', 'mozo@donjose.pe')->value('id'));
 
-        $response = $this->batch($waiter, ["sucursal.{$this->branch}.salon", "sucursal.{$this->branch}.mozo.{$waiterId}", "sucursal.{$this->branch}.mozo." . ($waiterId + 999), 'sucursal.999999.salon'])
+        $response = $this->batch($waiter, ["sucursal.{$this->branch}.salon", "sucursal.{$this->branch}.mozo.{$waiterId}", "sucursal.{$this->branch}.mozo.".($waiterId + 999), 'sucursal.999999.salon'])
             ->assertOk();
 
         // Los nombres de canal llevan puntos: se leen del arreglo, no con notación de puntos.
         $data = $response->json('data');
         $this->assertStringStartsWith('clave-prueba:', $data["private-sucursal.{$this->branch}.salon"]['auth']);
         $this->assertStringStartsWith('clave-prueba:', $data["private-sucursal.{$this->branch}.mozo.{$waiterId}"]['auth']);
-        $this->assertNull($data["private-sucursal.{$this->branch}.mozo." . ($waiterId + 999)]);
+        $this->assertNull($data["private-sucursal.{$this->branch}.mozo.".($waiterId + 999)]);
         $this->assertNull($data['private-sucursal.999999.salon']);
     }
 
@@ -127,12 +127,18 @@ class RealtimeTest extends DatabaseTestCase
     public function test_station_channel_is_for_kitchen_and_needs_an_existing_station(): void
     {
         $station = $this->api('POST', 'estaciones', ['nombre' => 'Cocina'])->json('data.id');
+        $bar = $this->api('POST', 'estaciones', ['nombre' => 'Bar'])->json('data.id');
         $cook = $this->user('Cocinero', 'cocina@donjose.pe');
+        $cookId = $this->asTenant($this->tenant, fn () => User::where('correo', 'cocina@donjose.pe')->value('id'));
         $waiter = $this->user('Mozo', 'mozo@donjose.pe');
+        $this->api('PUT', "cocina/accesos/{$cookId}", ['estacion_ids' => [$station], 'general' => false])->assertOk();
 
         $this->authorize($cook, "sucursal.{$this->branch}.estacion.{$station}")->assertOk();
+        $this->authorize($cook, "sucursal.{$this->branch}.estacion.{$bar}")->assertForbidden();
+        $this->authorize($cook, "sucursal.{$this->branch}.estacion.general")->assertForbidden();
         $this->authorize($waiter, "sucursal.{$this->branch}.estacion.{$station}")->assertForbidden();
         $this->authorize($cook, "sucursal.{$this->branch}.estacion.999999")->assertForbidden();
+        $this->authorize($this->admin, "sucursal.{$this->branch}.estacion.{$bar}")->assertOk();
     }
 
     public function test_saving_the_plan_and_changing_the_menu_broadcast_ids_only(): void

@@ -55,13 +55,19 @@ final class OrderPresenter
     /** @param Collection<int, Order> $orders */
     public function summaries(Collection $orders): array
     {
-        $orders->load(['table', 'waiter', 'items' => fn ($query) => $query->whereNull('anulado_en'), 'items.modifiers']);
+        $orders->load(['table', 'waiter', 'items' => fn ($query) => $query->whereNull('anulado_en'), 'items.product', 'items.modifiers']);
 
         return $orders->map(fn (Order $order) => $this->header($order) + [
             'total' => $this->sum($order->items),
             'platos' => $order->items->count(),
             'pendientes' => $order->items->whereIn('estado_cocina', ['PENDIENTE', 'EN_PREPARACION'])->count(),
             'listos' => $order->items->where('estado_cocina', 'LISTO')->count(),
+            'detalles_resumen' => $order->items->map(fn (OrderItem $item) => [
+                'id' => $item->id,
+                'nombre' => $item->product?->nombre,
+                'cantidad' => $item->cantidad,
+                'subtotal' => $item->subtotal(),
+            ])->all(),
         ])->all();
     }
 
@@ -78,6 +84,7 @@ final class OrderPresenter
             'mozo' => $order->waiter ? $order->waiter->only(['id', 'nombre']) : null,
             'numero_comensales' => $order->numero_comensales,
             'abierto_en' => $order->abierto_en->utc()->toIso8601ZuluString(),
+            'cerrado_en' => $order->cerrado_en?->utc()->toIso8601ZuluString(),
         ];
     }
 

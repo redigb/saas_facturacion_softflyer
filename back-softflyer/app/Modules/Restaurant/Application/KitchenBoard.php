@@ -25,15 +25,15 @@ final class KitchenBoard
 
     private const WAITER = 'restaurante.pedidos.crear';
 
+    public function __construct(private readonly ManageKitchenAccess $access) {}
+
     /**
      * @param  int|'general'  $station
      * @return Collection<int, KitchenTicket>
      */
     public function tickets(User $user, int $branchId, int|string $station): Collection
     {
-        if (! $user->worksAt($branchId)) {
-            throw new AccessDeniedHttpException;
-        }
+        $this->access->authorize($user, $branchId, $station === 'general' ? null : $station);
 
         $tickets = KitchenTicket::query()
             ->whereHas('order', fn ($query) => $query->where('sucursal_id', $branchId)->whereIn('estado', Order::ACTIVE))
@@ -78,9 +78,7 @@ final class KitchenBoard
     {
         $order = Order::whereKey($ticket->pedido_id)->firstOrFail();
 
-        if (! $user->worksAt($order->sucursal_id)) {
-            throw new AccessDeniedHttpException;
-        }
+        $this->access->authorize($user, $order->sucursal_id, $ticket->estacion_preparacion_id);
 
         if ($ticket->impresa_en === null) {
             $ticket->update(['impresa_en' => now()]);
@@ -104,6 +102,12 @@ final class KitchenBoard
             }
             if (! in_array($order->estado, Order::ACTIVE, true)) {
                 throw new BusinessException('PEDIDO_NO_ACTIVO', 'El pedido ya está cerrado o anulado.');
+            }
+
+            // El mozo puede entregar un plato listo sin pertenecer a su estación.
+            // Cualquier operación propia de cocina exige la asignación KDS.
+            if ($state !== 'ENTREGADO' || ! $user->hasPermission(self::WAITER)) {
+                $this->access->authorize($user, $order->sucursal_id, $ticket->estacion_preparacion_id);
             }
 
             $ticket->load('items.product');
