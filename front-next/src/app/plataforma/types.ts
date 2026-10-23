@@ -35,6 +35,16 @@ export type ClientDetail = Client & {
   bitacora: { accion: string; detalle: Record<string, unknown>; administrador: string; creado_en: string }[];
 };
 
+export type FiscalAlert = {
+  slug: string;
+  cliente: string;
+  tipo: "CREDENCIALES" | "SIN_CDR" | "VENCIDO" | "PENDIENTES" | "CERTIFICADO";
+  severidad: "alta" | "media";
+  cantidad: number;
+  detalle: string;
+  comprobantes: { numero: string; tipo: string; total: string; emitido_en: string; intentos: number; error: string | null }[];
+};
+
 export type Overview = {
   clientes: number;
   en_prueba: number;

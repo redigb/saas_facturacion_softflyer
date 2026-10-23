@@ -12,6 +12,7 @@ use App\Platform\Application\ManageClient;
 use App\Platform\Application\PlatformOverview;
 use App\Platform\Infrastructure\Persistence\PlatformLog;
 use Closure;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -131,6 +132,17 @@ class ClientController
         $this->manage->saveSolCredentials($this->client($slug), $data['usuario_sol'], $data['clave_sol'], $request->user());
 
         return $this->ok();
+    }
+
+    public function testCredentials(string $slug): JsonResponse
+    {
+        return response()->json(['data' => $this->manage->testCredentials($this->client($slug))]);
+    }
+
+    public function alerts(ClientDirectory $directory): JsonResponse
+    {
+        // Recorre todos los clientes: un minuto de caché basta para el contador del menú y la pantalla.
+        return response()->json(['data' => Cache::remember('plataforma.alertas', 60, fn () => $directory->alerts())]);
     }
 
     public function setCompanyRate(string $slug, Request $request): JsonResponse

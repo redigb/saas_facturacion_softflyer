@@ -10,6 +10,7 @@ use App\Core\Billing\Application\SunatUnavailable;
 use App\Core\Billing\Infrastructure\Persistence\DigitalCertificate;
 use App\Core\Billing\Infrastructure\Persistence\Receipt;
 use App\Core\Tenancy\Infrastructure\Persistence\Company;
+use Greenter\Model\Response\StatusCdrResult;
 use Greenter\See;
 use Greenter\Ws\Services\ConsultCdrService;
 use Greenter\Ws\Services\SoapClient;

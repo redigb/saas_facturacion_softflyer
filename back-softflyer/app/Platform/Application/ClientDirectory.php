@@ -10,6 +10,7 @@ use App\Core\Tenancy\Infrastructure\Persistence\Tenant;
 use App\Core\Tenancy\Infrastructure\Persistence\TrialRegistration;
 use App\Core\Tenancy\Infrastructure\TenantContext;
 use App\Platform\Infrastructure\Persistence\PlatformLog;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -79,6 +80,87 @@ final class ClientDirectory
             ->all();
 
         return $detail;
+    }
+
+    /** Tiempo (horas) que un comprobante real puede seguir pendiente antes de avisar. */
+    private const STALE_PENDING_HOURS = 1;
+
+    /** Comprobantes que se listan dentro de cada alerta. */
+    private const RECEIPTS_PER_ALERT = 10;
+
+    /** Días de margen para avisar que un certificado está por vencer. */
+    private const CERTIFICATE_WARNING_DAYS = 30;
+
+    /**
+     * Lo que pide atención en la facturación de cada cliente, lo más grave primero. Solo mira comprobantes
+     * reales: los simulados nunca salen a SUNAT y no son un problema.
+     *
+     * @return list<array{slug: string, cliente: string, tipo: string, severidad: string, cantidad: int, detalle: string, comprobantes: list<array<string, mixed>>}>
+     */
+    public function alerts(): array
+    {
+        $tenants = Tenant::where('es_demo', false)->orderBy('id')->get();
+        $found = array_merge(...$this->insideEach($tenants, fn (Tenant $tenant) => $this->alertsOf($tenant)));
+        usort($found, fn (array $a, array $b) => [$a['severidad'] === 'alta' ? 0 : 1, $a['cliente']] <=> [$b['severidad'] === 'alta' ? 0 : 1, $b['cliente']]);
+
+        return $found;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function alertsOf(Tenant $tenant): array
+    {
+        $alerts = [];
+        $add = function (string $type, string $severity, int $count, string $detail, array $receipts = []) use (&$alerts, $tenant) {
+            if ($count > 0) {
+                $alerts[] = ['slug' => $tenant->slug, 'cliente' => $tenant->nombre, 'tipo' => $type, 'severidad' => $severity, 'cantidad' => $count, 'detalle' => $detail, 'comprobantes' => $receipts];
+            }
+        };
+        // Cuántos hay y los más antiguos, para saber por dónde empezar.
+        $scan = fn ($query) => [$query->count(), $this->sampleReceipts($query)];
+
+        $real = fn () => DB::table('comprobantes')->where('es_simulado', false);
+        $credentials = $real()->where('estado', 'PENDIENTE_ENVIO')->where('motivo_espera', 'CREDENCIALES');
+        $noCdr = $real()->where('estado', 'SIN_CDR');
+        $expired = $real()->where('estado', 'VENCIDO');
+        $stale = $real()->where('estado', 'PENDIENTE_ENVIO')
+            ->where(fn ($q) => $q->whereNull('motivo_espera')->orWhere('motivo_espera', '!=', 'CREDENCIALES'))
+            ->where('emitido_en', '<', now()->subHours(self::STALE_PENDING_HOURS));
+
+        [$count, $rows] = $scan($credentials);
+        $add('CREDENCIALES', 'alta', $count, 'Comprobantes detenidos: SUNAT rechazó el usuario o la clave SOL. Corrígelos y se envían solos.', $rows);
+        [$count, $rows] = $scan($noCdr);
+        $add('SIN_CDR', 'alta', $count, 'SUNAT los registró pero no entregó el CDR en 48 h.', $rows);
+        [$count, $rows] = $scan($expired);
+        $add('VENCIDO', 'alta', $count, 'No se pudieron informar a SUNAT dentro del plazo de 48 h.', $rows);
+        [$count, $rows] = $scan($stale);
+        $add('PENDIENTES', 'media', $count, 'Siguen sin enviarse después de '.self::STALE_PENDING_HOURS.' h (se reintentan solos).', $rows);
+
+        $certificate = DB::table('certificados_digitales')->where('es_activo', true)->first(['vence_en']);
+        if ($certificate !== null) {
+            $days = (int) today()->diffInDays(Carbon::parse($certificate->vence_en), false);
+            $add('CERTIFICADO', $days < 0 ? 'alta' : 'media', $days <= self::CERTIFICATE_WARNING_DAYS ? 1 : 0, $days < 0 ? 'El certificado digital ya venció: no se puede emitir.' : "El certificado digital vence en {$days} días.");
+        }
+
+        return $alerts;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function sampleReceipts($query): array
+    {
+        return (clone $query)
+            ->join('tipos_comprobante', 'tipos_comprobante.id', '=', 'comprobantes.tipo_comprobante_id')
+            ->orderBy('comprobantes.emitido_en')
+            ->limit(self::RECEIPTS_PER_ALERT)
+            ->get(['comprobantes.serie', 'comprobantes.correlativo', 'tipos_comprobante.nombre as tipo', 'comprobantes.total', 'comprobantes.emitido_en', 'comprobantes.intentos_envio', 'comprobantes.ultimo_error_tecnico', 'comprobantes.mensaje_respuesta_sunat'])
+            ->map(fn ($row) => [
+                'numero' => sprintf('%s-%d', $row->serie, $row->correlativo),
+                'tipo' => $row->tipo,
+                'total' => $row->total,
+                'emitido_en' => Carbon::parse($row->emitido_en)->toIso8601ZuluString(),
+                'intentos' => (int) $row->intentos_envio,
+                'error' => $row->ultimo_error_tecnico ?? $row->mensaje_respuesta_sunat,
+            ])
+            ->all();
     }
 
     /**

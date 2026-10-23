@@ -12,11 +12,12 @@ import { Logo } from "@/components/logo";
 const NAV: { label: string; href: string; icon: IconName }[] = [
   { label: "Resumen", href: "/plataforma", icon: "home" },
   { label: "Clientes", href: "/plataforma/clientes", icon: "equipo" },
+  { label: "Alertas", href: "/plataforma/alertas", icon: "alerta" },
   { label: "Solicitudes", href: "/plataforma/solicitudes", icon: "calendario" },
   { label: "Nuevo cliente", href: "/plataforma/clientes/nuevo", icon: "rayo" },
 ];
 
-export function BackofficeShell({ admin, children }: { admin: PlatformAdmin; children: React.ReactNode }) {
+export function BackofficeShell({ admin, alertCount, children }: { admin: PlatformAdmin; alertCount: number; children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -60,6 +61,11 @@ export function BackofficeShell({ admin, children }: { admin: PlatformAdmin; chi
               >
                 <Icon name={item.icon} />
                 {item.label}
+                {item.href === "/plataforma/alertas" && alertCount > 0 ? (
+                  <span className="ml-auto rounded-full bg-amarillo px-2 py-0.5 text-xs font-bold text-azul-oscuro" aria-label={`${alertCount} alertas`}>
+                    {alertCount}
+                  </span>
+                ) : null}
               </Link>
             );
           })}

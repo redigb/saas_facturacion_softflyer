@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { activatePlan, extendTrial, reactivateClient, saveSolCredentials, setBranchTax, setCompanyRate, setHomologation, suspendClient, uploadCertificate, type FormState } from "@/app/plataforma/actions";
+import { activatePlan, extendTrial, reactivateClient, saveSolCredentials, setBranchTax, setCompanyRate, setHomologation, suspendClient, testCredentials, uploadCertificate, type FormState } from "@/app/plataforma/actions";
 import type { ClientDetail, Plan } from "@/app/plataforma/types";
 import { cardClass, inputClass, primaryButton } from "@/app/plataforma/ui";
 
@@ -72,6 +72,14 @@ export function ClientActions({ client, plans }: { client: ClientDetail; plans: 
         <input name="usuario_sol" required defaultValue={client.fiscal.usuario_sol ?? ""} autoComplete="off" placeholder="Usuario SOL" className={inputClass} aria-label="Usuario SOL" />
         <input name="clave_sol" type="password" required autoComplete="new-password" placeholder="Clave SOL" className={inputClass} aria-label="Clave SOL" />
       </ActionCard>
+
+      <ActionCard
+        title="Probar credenciales"
+        description="Pregunta a SUNAT si acepta el usuario y la clave SOL guardados, sin emitir nada. Solo se puede verificar en producción: en pruebas SUNAT acepta cualquier clave."
+        action={testCredentials.bind(null, client.slug)}
+        submit="Probar con SUNAT"
+        secondary
+      />
 
       <ActionCard
         title="Tasa de IGV de la empresa"

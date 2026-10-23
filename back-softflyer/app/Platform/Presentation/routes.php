@@ -25,6 +25,8 @@ Route::prefix('plataforma')->middleware(EnsurePlatformHost::class)->group(functi
         Route::post('/clientes/{slug}/homologacion', [ClientController::class, 'setHomologation']);
         Route::post('/clientes/{slug}/fiscal/certificado', [ClientController::class, 'uploadCertificate']);
         Route::put('/clientes/{slug}/fiscal/credenciales-sol', [ClientController::class, 'saveSolCredentials']);
+        Route::get('/alertas', [ClientController::class, 'alerts']);
+        Route::post('/clientes/{slug}/fiscal/probar-credenciales', [ClientController::class, 'testCredentials']);
         Route::put('/clientes/{slug}/fiscal/tasa-igv', [ClientController::class, 'setCompanyRate']);
         Route::patch('/clientes/{slug}/fiscal/sucursales/{branch}', [ClientController::class, 'setBranchTax'])->whereNumber('branch');
         Route::get('/solicitudes', [ClientController::class, 'pendingRegistrations']);

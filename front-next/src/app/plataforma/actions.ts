@@ -107,6 +107,17 @@ export async function saveSolCredentials(slug: string, _prev: FormState, formDat
   return fiscalRequest(slug, "credenciales-sol", { method: "PUT", body }, "Credenciales SOL guardadas.");
 }
 
+/** Pregunta a SUNAT si acepta el usuario y la clave SOL guardados; no emite nada. */
+export async function testCredentials(slug: string): Promise<FormState> {
+  const result = await apiFetch<{ resultado: string; mensaje: string }>(`plataforma/clientes/${slug}/fiscal/probar-credenciales`, { method: "POST" });
+
+  if (!result.ok) {
+    return { mensaje: result.error.mensaje };
+  }
+
+  return { ok: result.data.resultado !== "RECHAZADAS", mensaje: result.data.mensaje };
+}
+
 export async function setCompanyRate(slug: string, _prev: FormState, formData: FormData): Promise<FormState> {
   const body = JSON.stringify({ tasa_igv_id: Number(formData.get("tasa_igv_id")) });
 

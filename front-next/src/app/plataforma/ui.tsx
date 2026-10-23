@@ -57,6 +57,8 @@ export const ACTION_LABELS: Record<string, string> = {
   CERTIFICADO_CARGADO: "Certificado cargado",
   CREDENCIALES_SOL_ACTUALIZADAS: "Credenciales SOL actualizadas",
   IGV_LOCAL_ACTUALIZADO: "IGV del local actualizado",
+  TASA_IGV_ACTUALIZADA: "Tasa de IGV actualizada",
+  AMAZONIA_LOCAL_ACTUALIZADA: "Amazonía del local actualizada",
 };
 
 export const cardClass = "rounded-2xl border border-slate-200 bg-white p-6";

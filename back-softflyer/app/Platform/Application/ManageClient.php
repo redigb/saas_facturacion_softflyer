@@ -3,6 +3,8 @@
 namespace App\Platform\Application;
 
 use App\Core\Billing\Application\ManageFiscalConfiguration;
+use App\Core\Billing\Application\SunatGateway;
+use App\Core\Billing\Application\SunatUnavailable;
 use App\Core\Tenancy\Application\ProvisionTenant;
 use App\Core\Tenancy\Application\SubdomainAvailability;
 use App\Core\Tenancy\Domain\TenantStatus;
@@ -131,6 +133,34 @@ final class ManageClient
             // La clave nunca entra a la bitácora.
             $this->log($admin, $tenant, 'CREDENCIALES_SOL_ACTUALIZADAS', ['usuario_sol' => $user]);
         });
+    }
+
+    /**
+     * Pregunta a SUNAT si acepta el usuario y la clave SOL guardados, sin emitir nada.
+     *
+     * @return array{resultado: string, mensaje: string}
+     */
+    public function testCredentials(Tenant $tenant): array
+    {
+        $outcome = null;
+
+        $this->insideTenant($tenant, function () use (&$outcome) {
+            if (! app(ManageFiscalConfiguration::class)->status()['listo_para_emitir']) {
+                throw new BusinessException('FALTA_CONFIGURAR', 'Carga el certificado y la clave SOL antes de probarlos.', 422);
+            }
+
+            try {
+                $outcome = app(SunatGateway::class)->checkCredentials(Company::query()->orderBy('id')->firstOrFail());
+            } catch (SunatUnavailable) {
+                throw new BusinessException('SUNAT_NO_DISPONIBLE', 'SUNAT no respondió. Inténtalo de nuevo en unos minutos.', 503);
+            }
+        });
+
+        return ['resultado' => $outcome, 'mensaje' => match ($outcome) {
+            SunatGateway::CREDENTIALS_OK => 'SUNAT aceptó el usuario y la clave SOL.',
+            SunatGateway::CREDENTIALS_REJECTED => 'SUNAT rechazó el usuario o la clave SOL. Revísalos con el cliente.',
+            default => 'En pruebas (beta) SUNAT acepta cualquier credencial: solo se pueden verificar en producción.',
+        }];
     }
 
     /** Tasa de IGV de la empresa; las sucursales sin tasa propia la heredan. */

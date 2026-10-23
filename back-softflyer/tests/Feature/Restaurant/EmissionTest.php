@@ -12,6 +12,7 @@ use App\Core\Billing\Infrastructure\Greenter\ReceiptGreenterMapper;
 use App\Core\Billing\Infrastructure\Jobs\SendReceiptJob;
 use App\Core\Billing\Infrastructure\Persistence\Receipt;
 use App\Core\Tenancy\Infrastructure\Persistence\Company;
+use App\Platform\Application\ClientDirectory;
 use Greenter\See;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
@@ -255,6 +256,31 @@ class EmissionTest extends DatabaseTestCase
         $this->assertNull($row->motivo_espera);
         $this->assertNotNull($row->proximo_intento_en);
         $this->artisan('softflyer:enviar-pendientes')->expectsOutputToContain('encolados: 1')->assertSuccessful();
+    }
+
+    public function test_the_backoffice_alerts_list_what_needs_attention_and_ignore_simulated_receipts(): void
+    {
+        $directory = fn () => app(ClientDirectory::class)->alerts();
+        $submitReal = fn () => $this->asTenant(fn () => app(SubmitReceipt::class)->handle(Receipt::where('es_simulado', false)->firstOrFail()));
+
+        $this->chargeBread();   // simulado: no genera alertas
+        $this->assertSame([], $directory());
+
+        $this->pendingReceipt();
+        $this->assertSame([], $directory());   // recién emitido, aún dentro de su hora
+
+        $this->sunat->next = fn () => throw new SunatAuthFailed('SUNAT respondió 0102');
+        $submitReal();
+        $alerts = $directory();
+        $this->assertSame(['CREDENCIALES'], array_column($alerts, 'tipo'));
+        $this->assertSame(['donjose', 'alta', 1], [$alerts[0]['slug'], $alerts[0]['severidad'], $alerts[0]['cantidad']]);
+        $this->assertSame('B001-2', $alerts[0]['comprobantes'][0]['numero'] ?? null);
+        $this->assertStringContainsString('0102', $alerts[0]['comprobantes'][0]['error']);
+
+        $this->travel(49)->hours();
+        $this->asTenant(fn () => DB::table('comprobantes')->where('es_simulado', false)->update(['motivo_espera' => null]));
+        $submitReal();
+        $this->assertSame(['VENCIDO'], array_column($directory(), 'tipo'));
     }
 
     public function test_a_receipt_that_could_not_be_reported_in_time_expires(): void

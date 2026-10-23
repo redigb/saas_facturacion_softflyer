@@ -36,8 +36,8 @@ Solo lectura: ve el resumen (certificado, usuario SOL, tasa de IGV, si está lis
 
 ## Alcance pendiente
 
-- [ ] Alertas en el backoffice: pendientes por tiempo, `SIN_CDR`, `VENCIDO`, `CREDENCIALES` (017c).
-- [ ] Botón "Probar credenciales" en el backoffice (consulta de CDR de un comprobante inexistente: 0011 = autenticación correcta; solo en producción).
+- [x] Alertas en el backoffice (`GET plataforma/alertas`, pantalla Alertas): `CREDENCIALES`, `SIN_CDR`, `VENCIDO` (urgentes), pendientes de más de 1 h y certificado vencido o a menos de 30 días. Solo comprobantes reales; los demo no se escanean. Cada alerta trae los 10 comprobantes más antiguos (número, tipo, total, intentos, último error), el menú muestra un contador y el listado se cachea 60 s. Pendiente de 017c: reenvío manual y filtros.
+- [x] Botón "Probar credenciales" en la ficha del cliente (`POST plataforma/clientes/{slug}/fiscal/probar-credenciales`): consulta el CDR de un comprobante inexistente, 0011 = autenticación correcta. En beta responde `NO_VERIFICABLE`; el camino de producción (OK / RECHAZADAS) está probado solo con doble, confirmarlo con la primera empresa homologada.
 - [ ] Verificar `getStatusCdr` y el 1033 contra SUNAT producción: en beta un reenvío se acepta de nuevo, así que esas rutas solo se probaron con un doble.
 - [ ] El servidor debe correr `schedule:run` cada minuto además del worker de cola.
 - [x] Quitados de la API del dueño los endpoints de certificado, SOL y tasa; el candado `config_fiscal_bloqueada` ya no existe (migración `2026_10_22_000100_igv_por_sucursal`), así que `demo` y `donjose` quedan igual que cualquier cliente.

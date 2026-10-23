@@ -17,5 +17,12 @@ export default async function BackofficeLayout({ children }: { children: React.R
     redirect("/plataforma/login");
   }
 
-  return <BackofficeShell admin={me.data}>{children}</BackofficeShell>;
+  // Solo el contador del menú: si falla, el backoffice sigue y simplemente no muestra el número.
+  const alerts = await apiFetch<unknown[]>("plataforma/alertas");
+
+  return (
+    <BackofficeShell admin={me.data} alertCount={alerts.ok ? alerts.data.length : 0}>
+      {children}
+    </BackofficeShell>
+  );
 }

@@ -169,6 +169,16 @@ class PlatformTest extends DatabaseTestCase
         $this->withToken($token)->postJson(self::API.'clientes/donjose/fiscal/certificado', [])->assertStatus(422);
     }
 
+    public function test_credentials_can_be_tested_only_when_the_client_is_configured_and_alerts_are_listed(): void
+    {
+        $this->provision('donjose', TenantStatus::Active);
+        $token = $this->adminToken();
+
+        $this->withToken($token)->postJson(self::API.'clientes/donjose/fiscal/probar-credenciales')
+            ->assertStatus(422)->assertJsonPath('error.codigo', 'FALTA_CONFIGURAR');
+        $this->withToken($token)->getJson(self::API.'alertas')->assertOk()->assertJsonPath('data', []);
+    }
+
     public function test_tokens_do_not_cross_between_platform_and_tenants(): void
     {
         $tenant = $this->provision('donjose', TenantStatus::Active);
