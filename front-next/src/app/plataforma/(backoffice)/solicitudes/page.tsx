@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ErrorNotice, EmptyPanel } from "@/components/backoffice/molecules/notice";
 import { apiFetch } from "@/lib/api";
 
 export default async function RegistrationsPage() {
@@ -31,17 +32,10 @@ export default async function RegistrationsPage() {
       </div>
 
       {!result.ok ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
-          <p className="font-bold">Error al cargar solicitudes</p>
-          <p className="mt-1 text-sm">{result.error.mensaje}</p>
-        </div>
+        <ErrorNotice title="Error al cargar solicitudes" message={result.error.mensaje} />
       ) : result.data.length === 0 ? (
-        <Card className="border-border p-12 text-center shadow-xs">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-            <MailCheck className="h-8 w-8" />
-          </div>
-          <h2 className="mt-4 text-lg font-bold text-foreground">Sin solicitudes pendientes</h2>
-          <p className="mt-1 text-sm text-muted-foreground">No hay registros pendientes de confirmación.</p>
+        <Card className="border-border shadow-xs">
+          <EmptyPanel icon={MailCheck} title="Sin solicitudes pendientes" description="No hay registros pendientes de confirmación." />
         </Card>
       ) : (
         <Card className="overflow-hidden border-border shadow-sm">

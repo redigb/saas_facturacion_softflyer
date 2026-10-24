@@ -23,11 +23,11 @@ export function NewClientForm({ plans, rootDomain }: { plans: Plan[]; rootDomain
     const created = state.resultado;
 
     return (
-      <Card className="mt-6 max-w-2xl border-emerald-500/30 bg-card shadow-sm">
+      <Card className="mt-6 max-w-2xl border-success/40 bg-card shadow-sm">
         <CardHeader>
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-2 text-success">
             <CheckCircle2 className="h-6 w-6" />
-            <CardTitle className="text-xl text-emerald-700 dark:text-emerald-400">Cliente Creado Exitosamente</CardTitle>
+            <CardTitle className="text-xl text-success">Cliente Creado Exitosamente</CardTitle>
           </div>
           <CardDescription className="text-muted-foreground">
             Comparte estos datos con el cliente por un canal seguro.{" "}
@@ -73,7 +73,7 @@ export function NewClientForm({ plans, rootDomain }: { plans: Plan[]; rootDomain
           {state.mensaje && !state.errores && (
             <div
               role="alert"
-              className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400"
+              className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-medium text-foreground"
             >
               {state.mensaje}
             </div>
@@ -206,7 +206,7 @@ function Field({ label, error, children }: { label: string; error?: string; chil
     <label className="block">
       <span className="mb-1.5 block text-xs font-bold tracking-wide text-foreground uppercase">{label}</span>
       {children}
-      {error && <span className="mt-1.5 block text-xs font-medium text-red-500">{error}</span>}
+      {error && <span className="mt-1.5 block text-xs font-medium text-destructive">{error}</span>}
     </label>
   );
 }

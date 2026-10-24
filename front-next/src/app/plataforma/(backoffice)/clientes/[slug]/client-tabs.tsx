@@ -2,17 +2,8 @@
 
 import Link from "next/link";
 
+import { CLIENT_TABS, type ClientTab } from "@/app/plataforma/(backoffice)/clientes/[slug]/tabs";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-export const CLIENT_TABS = [
-  { value: "resumen", label: "Resumen" },
-  { value: "facturacion", label: "Facturación" },
-  { value: "suscripcion", label: "Suscripción" },
-  { value: "usuarios", label: "Usuarios" },
-  { value: "bitacora", label: "Bitácora" },
-] as const;
-
-export type ClientTab = (typeof CLIENT_TABS)[number]["value"];
 
 /**
  * Pestañas de la ficha. La pestaña vive en la URL (`?tab=`): sobrevive a recargar, se puede compartir y los

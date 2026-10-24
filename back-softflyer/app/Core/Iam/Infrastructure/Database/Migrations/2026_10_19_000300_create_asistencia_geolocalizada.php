@@ -74,7 +74,7 @@ return new class extends Migration
         $permissionIds = DB::table('permisos')->whereIn('codigo', array_keys($permissions))->pluck('id', 'codigo');
         DB::table('inquilinos')->orderBy('id')->pluck('id')->each(function (int $tenantId) use ($permissionIds): void {
             DB::statement("SELECT set_config('app.inquilino_actual', ?, false)", [(string) $tenantId]);
-            $roles = DB::table('roles')->whereIn('nombre', ['Administrador', 'Cajero', 'Encargado de salón', 'Mozo', 'Cocinero'])->get(['id', 'nombre']);
+            $roles = DB::table('roles')->where('inquilino_id', $tenantId)->whereIn('nombre', ['Administrador', 'Cajero', 'Encargado de salón', 'Mozo', 'Cocinero'])->get(['id', 'nombre']);
             foreach ($roles as $role) {
                 $codes = $role->nombre === 'Administrador' ? ['asistencia.marcar', 'asistencia.administrar'] : ['asistencia.marcar'];
                 foreach ($codes as $code) {

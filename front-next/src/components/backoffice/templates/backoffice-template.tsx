@@ -21,10 +21,16 @@ export function BackofficeTemplate({
   return (
     <SidebarProvider>
       <ThemeScope theme="backoffice" fontClass={backofficeFont.variable} />
+      <a
+        href="#contenido"
+        className="sr-only z-50 rounded-md bg-primary px-4 py-2 text-sm font-bold text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        Saltar al contenido
+      </a>
       <AppSidebar admin={admin} alertCount={alertCount} />
       <SidebarInset>
         <AppHeader alertCount={alertCount} clients={clients} />
-        <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 md:px-8">{children}</div>
+        <main id="contenido" tabIndex={-1} className="w-full flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

@@ -11,7 +11,7 @@ export function ResendButton({ id }: { id: number }) {
 
   if (state.ok) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-500">
+      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-success">
         <Check className="h-4 w-4" />
         <span>Enlace enviado</span>
       </span>
@@ -30,7 +30,7 @@ export function ResendButton({ id }: { id: number }) {
         <Send className="h-3.5 w-3.5" />
         <span>Reenviar enlace</span>
       </Button>
-      {state.mensaje && <p className="mt-1 text-xs text-red-500">{state.mensaje}</p>}
+      {state.mensaje && <p className="mt-1 text-xs text-destructive">{state.mensaje}</p>}
     </form>
   );
 }

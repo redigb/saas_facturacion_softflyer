@@ -8,7 +8,7 @@ import { visibleNavigation } from "@/app/panel/navigation";
 import { RealtimeIndicator } from "@/app/panel/realtime";
 import { UserMenu } from "@/app/panel/user-menu";
 import { Icon } from "@/components/icons";
-import { Logo } from "@/components/logo";
+import { Logo, LogoIcon } from "@/components/logo";
 import { SalesButton } from "@/components/sales-button";
 import type { Me } from "@/lib/api";
 
@@ -60,7 +60,11 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
 
         <div className={`flex h-20 items-center justify-between ${collapsed ? "px-3 justify-center" : "px-6"}`}>
           <div className="flex items-center justify-center overflow-hidden">
-            <Logo className={`transition-all duration-300 ${collapsed ? "h-9 w-9 object-contain" : "h-11 w-auto"}`} />
+            {collapsed ? (
+              <LogoIcon className="size-9 object-contain" />
+            ) : (
+              <Logo className="h-11 w-auto" />
+            )}
           </div>
           <button
             type="button"

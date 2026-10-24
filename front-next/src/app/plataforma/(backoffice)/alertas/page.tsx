@@ -13,6 +13,7 @@ import { formatDateTime } from "@/app/plataforma/ui";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ErrorNotice, EmptyPanel } from "@/components/backoffice/molecules/notice";
 import { apiFetch } from "@/lib/api";
 
 const TITLES: Record<FiscalAlert["tipo"], string> = {
@@ -30,7 +31,7 @@ export default async function AlertsPage() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <ShieldAlert className="h-7 w-7 text-amber-500" />
+          <ShieldAlert className="h-7 w-7 text-warning" />
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Alertas de Facturación</h1>
         </div>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
@@ -40,17 +41,10 @@ export default async function AlertsPage() {
       </div>
 
       {!result.ok ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
-          <p className="font-bold">Error al consultar alertas</p>
-          <p className="mt-1 text-sm">{result.error.mensaje}</p>
-        </div>
+        <ErrorNotice title="Error al consultar alertas" message={result.error.mensaje} />
       ) : result.data.length === 0 ? (
-        <Card className="border-border p-12 text-center shadow-xs">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-            <CheckCircle2 className="h-8 w-8" />
-          </div>
-          <h2 className="mt-4 text-lg font-bold text-foreground">Todo en orden</h2>
-          <p className="mt-1 text-sm text-muted-foreground">No hay alertas fiscales activas en la plataforma.</p>
+        <Card className="border-border shadow-xs">
+          <EmptyPanel icon={CheckCircle2} title="Todo en orden" description="No hay alertas fiscales activas en la plataforma." />
         </Card>
       ) : (
         <div className="space-y-4">
@@ -60,7 +54,7 @@ export default async function AlertsPage() {
               <Card
                 key={`${alert.slug}-${alert.tipo}`}
                 className={`overflow-hidden border transition-shadow hover:shadow-md ${
-                  isHigh ? "border-red-200/80 bg-red-50/10" : "border-border bg-card"
+                  isHigh ? "border-destructive/40 bg-destructive/5" : "border-border bg-card"
                 }`}
               >
                 <CardContent className="p-5">
@@ -68,7 +62,7 @@ export default async function AlertsPage() {
                     <div className="flex items-start gap-3 min-w-0 flex-1">
                       <div
                         className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                          isHigh ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"
+                          isHigh ? "bg-destructive/15 text-destructive" : "bg-warning/20 text-warning"
                         }`}
                       >
                         {isHigh ? <AlertOctagon className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
@@ -124,7 +118,7 @@ export default async function AlertsPage() {
                                 </span>
                               </div>
                               {receipt.error && (
-                                <p className="mt-1 font-mono text-[11px] text-red-600 bg-red-50/80 rounded px-2 py-1">
+                                <p className="mt-1 font-mono text-xs text-destructive bg-destructive/10 rounded px-2 py-1">
                                   {receipt.error}
                                 </p>
                               )}

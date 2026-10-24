@@ -173,6 +173,23 @@ svg text {
   font-family: var(--font-montserrat), "Montserrat", sans-serif !important;
 }
 
+/* Adaptación del logo oficial según tema en toda la aplicación (evita duplicación o choques) */
+.softflyer-logo-dark {
+  display: none !important;
+}
+.softflyer-logo-light {
+  display: block !important;
+}
+
+html.dark .softflyer-logo-dark,
+[data-theme='backoffice'].dark .softflyer-logo-dark {
+  display: block !important;
+}
+html.dark .softflyer-logo-light,
+[data-theme='backoffice'].dark .softflyer-logo-light {
+  display: none !important;
+}
+
 .Toastify__toast-container {
   z-index: 9999 !important;
   top: 1.25rem !important;

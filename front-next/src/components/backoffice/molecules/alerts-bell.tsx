@@ -7,7 +7,7 @@ export function AlertsBell({ count }: { count: number }) {
     <Link
       href="/plataforma/alertas"
       aria-label={count > 0 ? `${count} alertas de facturación` : "Alertas de facturación"}
-      className="relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+      className="relative flex size-9 items-center justify-center rounded-xl border border-border/50 bg-muted/40 text-foreground shadow-2xs transition-all hover:border-border hover:bg-muted active:scale-95"
     >
       <Bell className="size-4" />
       {count > 0 ? (

@@ -1,89 +1,31 @@
 import Link from "next/link";
-import {
-  Users,
-  Clock,
-  AlertTriangle,
-  CheckCircle2,
-  Ban,
-  FileQuestion,
-  TrendingUp,
-  ArrowRight,
-  PhoneCall,
-  Mail,
-  UserCheck,
-} from "lucide-react";
+import { ArrowRight, Mail, PhoneCall, UserCheck } from "lucide-react";
 
-import type { Overview } from "@/app/plataforma/types";
+import type { Overview, Plan } from "@/app/plataforma/types";
 import { ClientStatus, formatDate } from "@/app/plataforma/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ErrorNotice } from "@/components/backoffice/molecules/notice";
+import { NewClientDialog } from "@/components/backoffice/organisms/new-client-dialog";
 import { apiFetch } from "@/lib/api";
+import { rootDomainLabel } from "@/lib/tenant";
+import { OverviewTiles } from "@/app/plataforma/(backoffice)/overview-tiles";
 
 export default async function PlatformOverviewPage() {
-  const result = await apiFetch<Overview>("plataforma/resumen");
+  const [result, plansResult] = await Promise.all([
+    apiFetch<Overview>("plataforma/resumen"),
+    apiFetch<Plan[]>("plataforma/planes"),
+  ]);
 
   if (!result.ok) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
-        <p className="font-bold">Error al cargar resumen del backoffice</p>
-        <p className="mt-1 text-sm">{result.error.mensaje}</p>
-      </div>
+      <ErrorNotice title="Error al cargar resumen del backoffice" message={result.error.mensaje} />
     );
   }
 
   const o = result.data;
-  const tiles = [
-    {
-      label: "Clientes",
-      value: o.clientes,
-      hint: "Restaurantes registrados",
-      icon: Users,
-      color: "text-slate-700 bg-slate-100 dark:text-slate-300 dark:bg-slate-800",
-    },
-    {
-      label: "En prueba",
-      value: o.en_prueba,
-      hint: `${o.por_vencer} vencen en ≤ 2 días`,
-      icon: Clock,
-      color: "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40",
-    },
-    {
-      label: "Pruebas vencidas",
-      value: o.pruebas_vencidas,
-      hint: "Esperan contacto comercial",
-      icon: AlertTriangle,
-      color: "text-rose-700 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/40",
-    },
-    {
-      label: "De pago",
-      value: o.de_pago,
-      hint: "Con suscripción activa",
-      icon: CheckCircle2,
-      color: "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40",
-    },
-    {
-      label: "Suspendidos",
-      value: o.suspendidos,
-      hint: "Sin acceso a operar",
-      icon: Ban,
-      color: "text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-950/40",
-    },
-    {
-      label: "Solicitudes",
-      value: o.solicitudes_pendientes,
-      hint: "Registros sin verificar",
-      icon: FileQuestion,
-      color: "text-slate-700 bg-slate-100 dark:text-slate-300 dark:bg-slate-800",
-    },
-    {
-      label: "Conversión",
-      value: o.conversion === null ? "—" : `${o.conversion}%`,
-      hint: "Pruebas web que pagan",
-      icon: TrendingUp,
-      color: "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40",
-    },
-  ];
+  const plans = plansResult.ok ? plansResult.data : [];
 
   return (
     <div className="space-y-8">
@@ -97,37 +39,15 @@ export default async function PlatformOverviewPage() {
           <Button asChild variant="outline" size="sm">
             <Link href="/plataforma/solicitudes">Ver solicitudes</Link>
           </Button>
-          <Button asChild size="sm" className="bg-azul text-white hover:bg-azul-oscuro">
-            <Link href="/plataforma/clientes/nuevo">+ Nuevo cliente</Link>
-          </Button>
+          <NewClientDialog plans={plans} rootDomain={rootDomainLabel()} />
         </div>
       </div>
 
-      {/* KPI Tiles */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
-        {tiles.map((tile) => {
-          const IconComponent = tile.icon;
-          return (
-            <Card key={tile.label} className="border-border/80 shadow-xs hover:shadow-sm transition-shadow">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">{tile.label}</span>
-                  <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${tile.color}`}>
-                    <IconComponent className="h-4 w-4" />
-                  </div>
-                </div>
-                <div className="mt-2 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-                  {tile.value}
-                </div>
-                <p className="mt-1 text-[11px] font-medium text-muted-foreground leading-tight">{tile.hint}</p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </section>
+      {/* KPI Cards — 4 métricas clave y botón para desplegar más */}
+      <OverviewTiles overview={o} />
 
       {/* Ventas & Seguimiento */}
-      <Card className="border-border/80 shadow-sm">
+      <Card className="rounded-2xl border border-border/70 shadow-xs">
         <CardHeader className="border-b border-border/60 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -144,7 +64,7 @@ export default async function PlatformOverviewPage() {
               </CardDescription>
             </div>
             <Button asChild variant="ghost" size="sm">
-              <Link href="/plataforma/clientes" className="flex items-center gap-1.5 font-bold text-azul hover:text-azul-oscuro">
+              <Link href="/plataforma/clientes" className="flex items-center gap-1.5 font-bold text-primary">
                 <span>Directorio completo</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -154,7 +74,7 @@ export default async function PlatformOverviewPage() {
         <CardContent className="p-0">
           {o.seguimiento.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/15 text-success">
                 <UserCheck className="h-6 w-6" />
               </div>
               <p className="mt-3 text-sm font-semibold text-foreground">Sin pruebas críticas</p>
@@ -171,7 +91,7 @@ export default async function PlatformOverviewPage() {
                     <div className="flex items-center gap-2.5">
                       <Link
                         href={`/plataforma/clientes/${client.slug}`}
-                        className="font-bold text-foreground hover:text-azul transition-colors"
+                        className="font-bold text-foreground hover:text-primary transition-colors"
                       >
                         {client.nombre}
                       </Link>
@@ -197,13 +117,13 @@ export default async function PlatformOverviewPage() {
                       <p className="text-xs font-semibold text-muted-foreground">
                         Vence: {formatDate(client.prueba!.vence_en)}
                       </p>
-                      <p className="text-[11px] font-bold text-amber-600">
+                      <p className="text-xs font-bold text-warning">
                         {client.prueba?.dias_restantes === 0
                           ? "Vence hoy"
                           : `${client.prueba?.dias_restantes ?? 0} días restantes`}
                       </p>
                     </div>
-                    <Button asChild size="sm" variant="outline" className="hover:border-azul hover:text-azul">
+                    <Button asChild size="sm" variant="outline" className="hover:border-primary hover:text-primary">
                       <Link href={`/plataforma/clientes/${client.slug}`}>Gestionar</Link>
                     </Button>
                   </div>

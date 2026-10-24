@@ -22,7 +22,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${montserrat.variable} ${montserrat.className} h-full antialiased`}>
+    <html
+      lang="es"
+      suppressHydrationWarning
+      className={`${montserrat.variable} ${montserrat.className} h-full antialiased`}
+    >
       <body className={`${montserrat.className} min-h-full font-sans`}>
         {children}
         <ToastContainer />

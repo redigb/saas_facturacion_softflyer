@@ -1,13 +1,18 @@
-import Link from "next/link";
-import { Plus, Users } from "lucide-react";
+import { Users } from "lucide-react";
 
 import { ClientsTable } from "@/app/plataforma/(backoffice)/clientes/clients-table";
-import type { Client } from "@/app/plataforma/types";
-import { Button } from "@/components/ui/button";
+import type { Client, Plan } from "@/app/plataforma/types";
+import { ErrorNotice } from "@/components/backoffice/molecules/notice";
+import { NewClientDialog } from "@/components/backoffice/organisms/new-client-dialog";
 import { apiFetch } from "@/lib/api";
+import { rootDomainLabel } from "@/lib/tenant";
 
-export default async function ClientsPage() {
-  const result = await apiFetch<Client[]>("plataforma/clientes");
+export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ estado?: string }> }) {
+  const { estado } = await searchParams;
+  const [result, plansResult] = await Promise.all([
+    apiFetch<Client[]>("plataforma/clientes"),
+    apiFetch<Plan[]>("plataforma/planes"),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -21,21 +26,16 @@ export default async function ClientsPage() {
             Directorio completo de restaurantes en la plataforma (excluyendo la demo pública).
           </p>
         </div>
-        <Button asChild className="gap-2">
-          <Link href="/plataforma/clientes/nuevo">
-            <Plus className="h-4 w-4" />
-            <span>Nuevo cliente</span>
-          </Link>
-        </Button>
+        <NewClientDialog
+          plans={plansResult.ok ? plansResult.data : []}
+          rootDomain={rootDomainLabel()}
+        />
       </div>
 
       {result.ok ? (
-        <ClientsTable clients={result.data} />
+        <ClientsTable clients={result.data} initialFilter={estado} />
       ) : (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
-          <p className="font-bold">Error al cargar clientes</p>
-          <p className="mt-1 text-sm">{result.error.mensaje}</p>
-        </div>
+        <ErrorNotice title="Error al cargar clientes" message={result.error.mensaje} />
       )}
     </div>
   );

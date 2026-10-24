@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BillingActions } from "@/app/plataforma/(backoffice)/clientes/[slug]/billing-actions";
-import { CLIENT_TABS, ClientTabs, type ClientTab } from "@/app/plataforma/(backoffice)/clientes/[slug]/client-tabs";
+import { ClientTabs } from "@/app/plataforma/(backoffice)/clientes/[slug]/client-tabs";
+import { CLIENT_TABS, type ClientTab } from "@/app/plataforma/(backoffice)/clientes/[slug]/tabs";
 import { ProfileActions } from "@/app/plataforma/(backoffice)/clientes/[slug]/profile-actions";
 import { SubscriptionActions } from "@/app/plataforma/(backoffice)/clientes/[slug]/subscription-actions";
 import type { ClientDetail, Plan } from "@/app/plataforma/types";
