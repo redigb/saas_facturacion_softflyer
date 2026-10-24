@@ -40,6 +40,28 @@ export async function apiCommand(path: string, options: RequestOptions = {}): Pr
   await send(path, options);
 }
 
+/**
+ * Subida de archivos con FormData (p. ej. la foto del plato — spec 023): sin
+ * Content-Type manual (el navegador pone el boundary) y sin JSON.stringify.
+ */
+export async function apiUpload<S extends z.ZodType>(path: string, formData: FormData, schema: S): Promise<z.infer<S>> {
+  let response: Response;
+
+  try {
+    response = await fetch(`/api/${path}`, {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body: formData,
+    });
+  } catch {
+    throw new ApiRequestError(0, "SIN_CONEXION", "No hay conexión. Revisa tu internet e intenta de nuevo.");
+  }
+
+  await ensureOk(response);
+
+  return schema.parse(await response.json());
+}
+
 async function send(path: string, { method = "GET", body, headers = {} }: RequestOptions): Promise<Response> {
   let response: Response;
 
@@ -54,16 +76,20 @@ async function send(path: string, { method = "GET", body, headers = {} }: Reques
     throw new ApiRequestError(0, "SIN_CONEXION", "No hay conexión. Revisa tu internet e intenta de nuevo.");
   }
 
-  if (!response.ok) {
-    const error = (await response.json().catch(() => null))?.error as ApiError | undefined;
-
-    throw new ApiRequestError(
-      response.status,
-      error?.codigo ?? "ERROR_HTTP",
-      error?.mensaje ?? "No se pudo completar la operación.",
-      error?.detalles ?? null,
-    );
-  }
+  await ensureOk(response);
 
   return response;
+}
+
+async function ensureOk(response: Response): Promise<void> {
+  if (response.ok) return;
+
+  const error = (await response.json().catch(() => null))?.error as ApiError | undefined;
+
+  throw new ApiRequestError(
+    response.status,
+    error?.codigo ?? "ERROR_HTTP",
+    error?.mensaje ?? "No se pudo completar la operación.",
+    error?.detalles ?? null,
+  );
 }

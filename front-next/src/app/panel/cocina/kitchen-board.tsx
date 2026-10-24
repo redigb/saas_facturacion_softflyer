@@ -3,14 +3,13 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
-import { useStations } from "@/app/panel/carta/queries";
 import { Skeleton } from "@/app/panel/carta/ui";
-import { boardKey, useBoard, useKitchenChange, type Station } from "@/app/panel/cocina/queries";
+import { boardKey, useBoard, useKitchenChange, useKitchenStations, usePrintTicket, type Station } from "@/app/panel/cocina/queries";
 import { minutesSince, useNow } from "@/app/panel/pedidos/use-now";
 import { useRealtime } from "@/app/panel/realtime";
 import { Icon } from "@/components/icons";
 import { Button, EmptyState } from "@/components/ui";
-import { nextKitchenState, type KitchenState, type Ticket } from "@/lib/schemas/cocina";
+import { nextKitchenState, type KitchenState, type KitchenStation, type Ticket } from "@/lib/schemas/cocina";
 
 const STATION_KEY = "sf-cocina-estacion";
 const SOUND_KEY = "sf-cocina-sonido";
@@ -20,24 +19,41 @@ const SOUND_KEY = "sf-cocina-sonido";
  * Pensada para quedarse abierta todo el turno en una tablet o monitor táctil.
  */
 export function KitchenBoard() {
-  const [station, setStation] = useStoredStation();
-  const stations = useStations();
+  const [storedStation, setStation] = useStoredStation();
+  const stations = useKitchenStations();
 
-  if (station === null) {
-    return <StationPicker stations={stations.data ?? []} loading={stations.isPending} onPick={setStation} />;
+  if (stations.isPending) {
+    return <Skeleton className="h-64 rounded-3xl" />;
+  }
+  if (stations.isError) {
+    return <p className="rounded-2xl border border-red-200 bg-red-50 p-6 font-semibold text-red-700">No pudimos cargar tus estaciones de cocina: {stations.error.message}</p>;
   }
 
-  const name = station === "general" ? "General" : (stations.data?.find((item) => item.id === station)?.nombre ?? "Estación");
-  return <Board key={String(station)} station={station} name={name} onChangeStation={() => setStation(null)} />;
+  const allowed = stations.data ?? [];
+  if (allowed.length === 0) {
+    return <EmptyState icon="cocina" title="Sin estación KDS asignada" description="Pídele al administrador que te asigne Cocina, Barra u otra estación desde Equipo." />;
+  }
+
+  const storedIsAllowed = storedStation !== null && allowed.some((item) => item.id === storedStation);
+  const station = storedIsAllowed ? storedStation : allowed.length === 1 ? allowed[0]!.id : null;
+
+  if (station === null) {
+    return <StationPicker stations={allowed} onPick={setStation} />;
+  }
+
+  const name = allowed.find((item) => item.id === station)?.nombre ?? "Estación";
+  return <Board key={String(station)} station={station} name={name} canChangeStation={allowed.length > 1} onChangeStation={() => setStation(null)} />;
 }
 
-function Board({ station, name, onChangeStation }: { station: Station; name: string; onChangeStation: () => void }) {
+function Board({ station, name, canChangeStation, onChangeStation }: { station: Station; name: string; canChangeStation: boolean; onChangeStation: () => void }) {
   const { status, branches, watch } = useRealtime();
   const queryClient = useQueryClient();
   const board = useBoard(station, status === "en-vivo");
   const change = useKitchenChange(station);
+  const printTicket = usePrintTicket(station);
   const now = useNow(15_000);
   const [fresh, setFresh] = useState<Set<number>>(new Set());
+  const [printing, setPrinting] = useState<Ticket | null>(null);
   const [sound, setSound] = useStoredSound();
   const audio = useRef<AudioContext | null>(null);
 
@@ -61,6 +77,19 @@ function Board({ station, name, onChangeStation }: { station: Station; name: str
     });
   }, [branches, station, watch, queryClient]);
 
+  // Imprimir comanda (spec 027): el papel de 80 mm se arma oculto, se abre el diálogo
+  // del navegador y al volver se marca impresa. Reimprimir no mueve la marca original.
+  useEffect(() => {
+    if (!printing) return;
+    const frame = requestAnimationFrame(() => {
+      window.print();
+      printTicket.mutate(printing.id);
+      setPrinting(null);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [printing, printTicket]);
+
   function toggleSound() {
     // Los navegadores solo permiten sonido después de un toque del usuario.
     if (!sound) {
@@ -82,7 +111,7 @@ function Board({ station, name, onChangeStation }: { station: Station; name: str
     <div>
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-tinta sm:text-3xl">Cocina · {name}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-tinta sm:text-3xl">KDS · {name}</h1>
           <p className="text-sm text-slate-500">
             {pending.length === 0 ? "Sin comandas pendientes." : `${pending.length} comanda${pending.length === 1 ? "" : "s"} pendiente${pending.length === 1 ? "" : "s"}.`}
           </p>
@@ -90,9 +119,11 @@ function Board({ station, name, onChangeStation }: { station: Station; name: str
         <Button variant="secondary" onClick={toggleSound} aria-pressed={sound}>
           {sound ? "🔔 Sonido activado" : "🔕 Activar sonido"}
         </Button>
-        <Button variant="ghost" onClick={onChangeStation}>
-          Cambiar estación
-        </Button>
+        {canChangeStation && (
+          <Button variant="ghost" onClick={onChangeStation}>
+            Cambiar estación
+          </Button>
+        )}
       </div>
 
       {status !== "en-vivo" && status !== "desactivado" && (
@@ -113,7 +144,7 @@ function Board({ station, name, onChangeStation }: { station: Station; name: str
         <>
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {pending.map((ticket) => (
-              <TicketCard key={ticket.id} ticket={ticket} now={now} fresh={fresh.has(ticket.id)} onItem={(itemId, state) => change.mutate({ kind: "item", itemId, state })} onAllReady={() => change.mutate({ kind: "ticket", ticketId: ticket.id })} />
+              <TicketCard key={ticket.id} ticket={ticket} now={now} fresh={fresh.has(ticket.id)} onItem={(itemId, state) => change.mutate({ kind: "item", itemId, state })} onAllReady={() => change.mutate({ kind: "ticket", ticketId: ticket.id })} onPrint={() => setPrinting(ticket)} />
             ))}
           </ul>
 
@@ -142,6 +173,8 @@ function Board({ station, name, onChangeStation }: { station: Station; name: str
           )}
         </>
       )}
+
+      {printing && <PrintComanda ticket={printing} stationName={name} />}
     </div>
   );
 }
@@ -153,7 +186,7 @@ const ITEM_STYLE = {
   ENTREGADO: { card: "border-slate-200 bg-slate-50 opacity-60", badge: "Entregado" },
 } as const;
 
-function TicketCard({ ticket, now, fresh, onItem, onAllReady }: { ticket: Ticket; now: number; fresh: boolean; onItem: (itemId: number, state: KitchenState) => void; onAllReady: () => void }) {
+function TicketCard({ ticket, now, fresh, onItem, onAllReady, onPrint }: { ticket: Ticket; now: number; fresh: boolean; onItem: (itemId: number, state: KitchenState) => void; onAllReady: () => void; onPrint: () => void }) {
   const waiting = minutesSince(ticket.enviada_en, now);
   const urgency = waiting >= 20 ? "bg-red-600 text-white" : waiting >= 10 ? "bg-amarillo text-tinta" : "bg-slate-100 text-slate-600";
 
@@ -161,7 +194,10 @@ function TicketCard({ ticket, now, fresh, onItem, onAllReady }: { ticket: Ticket
     <li className={`flex flex-col rounded-2xl border-2 bg-white shadow-sm transition-all ${fresh ? "border-celeste ring-4 ring-celeste/40" : "border-slate-200"}`}>
       <header className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
         <div className="min-w-0">
-          <p className="truncate text-lg font-bold text-tinta">{label(ticket)}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-lg font-bold text-tinta">{label(ticket)}</p>
+            {ticket.es_agregado && <span className="rounded-full bg-amarillo px-2.5 py-1 text-xs font-bold tracking-wide text-tinta">AGREGÓ</span>}
+          </div>
           <p className="truncate text-xs text-slate-500">
             #{ticket.pedido.numero} · {ticket.enviada_por} {ticket.numero > 1 ? `· tanda ${ticket.numero}` : ""}
           </p>
@@ -197,47 +233,84 @@ function TicketCard({ ticket, now, fresh, onItem, onAllReady }: { ticket: Ticket
         })}
       </ul>
 
-      <div className="p-3 pt-0">
-        <Button size="lg" className="w-full" onClick={onAllReady}>
+      <div className="flex gap-2 p-3 pt-0">
+        <Button variant="secondary" size="lg" onClick={onPrint} aria-label={`${ticket.impresa_en ? "Reimprimir" : "Imprimir"} comanda de ${label(ticket)}`}>
+          <Icon name="lista" className="h-5 w-5" />
+          {ticket.impresa_en ? "Reimprimir" : "Imprimir"}
+        </Button>
+        <Button size="lg" className="flex-1" onClick={onAllReady}>
           <Icon name="check" className="h-5 w-5" />
           Todo listo
         </Button>
       </div>
+      {ticket.impresa_en && <p className="px-3 pb-3 text-center text-[11px] font-semibold text-slate-400">Impreso {clock(ticket.impresa_en)}</p>}
     </li>
   );
 }
 
-function StationPicker({ stations, loading, onPick }: { stations: { id: number; nombre: string; es_activa: boolean }[]; loading: boolean; onPick: (station: Station) => void }) {
+function StationPicker({ stations, onPick }: { stations: KitchenStation[]; onPick: (station: Station) => void }) {
   return (
     <div className="mx-auto max-w-xl">
       <h1 className="text-2xl font-bold tracking-tight text-tinta sm:text-3xl">¿Qué estación es esta pantalla?</h1>
       <p className="mt-1 text-sm text-slate-500">Se recuerda en este dispositivo. Puedes cambiarla cuando quieras.</p>
-      {loading ? (
-        <Skeleton className="mt-6 h-40" />
-      ) : (
-        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-          {stations
-            .filter((item) => item.es_activa)
-            .map((item) => (
-              <li key={item.id}>
-                <Button variant="secondary" size="lg" className="h-20 w-full text-lg" onClick={() => onPick(item.id)}>
-                  {item.nombre}
-                </Button>
-              </li>
-            ))}
-          <li>
-            <Button variant="secondary" size="lg" className="h-20 w-full text-lg" onClick={() => onPick("general")}>
-              General (platos sin estación)
+      <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+        {stations.map((item) => (
+          <li key={item.id}>
+            <Button variant="secondary" size="lg" className="h-20 w-full text-lg" onClick={() => onPick(item.id)}>
+              {item.nombre}
             </Button>
           </li>
-        </ul>
-      )}
+        ))}
+      </ul>
     </div>
   );
 }
 
 function label(ticket: Ticket): string {
   return ticket.pedido.mesa ? `Mesa ${ticket.pedido.mesa}` : `Para llevar #${ticket.pedido.numero}`;
+}
+
+function clock(iso: string): string {
+  return new Date(iso).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Comanda de 80 mm (spec 027): oculta en pantalla, visible solo al imprimir. */
+function PrintComanda({ ticket, stationName }: { ticket: Ticket; stationName: string }) {
+  return (
+    <>
+      <style>{`
+#ticket-comanda { display: none; }
+@media print {
+  body * { visibility: hidden !important; }
+  #ticket-comanda, #ticket-comanda * { visibility: visible !important; }
+  #ticket-comanda { display: block !important; position: fixed; left: 0; top: 0; width: 80mm; border: 0; box-shadow: none; }
+}`}</style>
+      <div id="ticket-comanda" className="mx-auto w-full max-w-[80mm] bg-white p-4 font-mono text-[12px] leading-5 text-tinta">
+        <p className="text-center text-sm font-bold tracking-wide uppercase">Comanda · {stationName}</p>
+        <p className="text-center text-lg font-bold">{label(ticket)}</p>
+        <p className="text-center">
+          #{ticket.pedido.numero}
+          {ticket.numero > 1 ? ` · tanda ${ticket.numero}` : ""} · {clock(ticket.enviada_en)}
+        </p>
+        {ticket.es_agregado && <p className="mt-2 border-y-2 border-dashed border-tinta py-1 text-center text-base font-bold tracking-widest">AGREGÓ</p>}
+
+        <ul className="mt-3 space-y-2 border-t border-dashed border-slate-400 pt-2">
+          {ticket.detalles.map((item) => (
+            <li key={item.id}>
+              <p className={`font-bold ${item.anulado ? "line-through" : ""}`}>
+                {Number(item.cantidad)}× {item.nombre}
+                {item.anulado ? " (ANULADO)" : ""}
+              </p>
+              {item.modificadores.length > 0 && <p>— {item.modificadores.join(" · ")}</p>}
+              {item.notas && <p className="font-bold">⚠ {item.notas}</p>}
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-3 border-t border-dashed border-slate-400 pt-2 text-center">Enviada por {ticket.enviada_por ?? "—"}</p>
+      </div>
+    </>
+  );
 }
 
 function beep(context: AudioContext) {

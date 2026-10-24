@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { ToastContainer } from "@/components/ui/toast";
 

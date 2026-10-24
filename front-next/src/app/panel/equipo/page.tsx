@@ -16,7 +16,13 @@ export default async function EquipoPage() {
         <p className="mt-1 text-sm text-slate-500 sm:text-base">Quién trabaja en tu restaurante, qué puede hacer y cómo entra.</p>
       </div>
       <div className="mt-6">
-        <TeamView can={{ create: permisos.includes("usuarios.crear"), assignRole: permisos.includes("usuarios.asignar_rol") }} />
+        <TeamView
+          can={{
+            create: permisos.includes("usuarios.crear"),
+            assignRole: permisos.includes("usuarios.asignar_rol"),
+            manageKitchenAccess: permisos.includes("usuarios.editar"),
+          }}
+        />
       </div>
     </>
   );

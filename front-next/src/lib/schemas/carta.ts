@@ -20,6 +20,7 @@ export const productSchema = z.object({
   codigo: z.string(),
   nombre: z.string(),
   descripcion: z.string().nullable(),
+  imagen_url: z.string().nullable(),
   tipo: z.enum(["PLATO", "BEBIDA"]),
   categoria_id: z.number().nullable(),
   precio_venta: decimal.nullable(),

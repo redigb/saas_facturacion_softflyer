@@ -32,7 +32,7 @@ export function ProductRow({
         product.es_activo ? "hover:bg-slate-50/70" : "bg-slate-50/60 opacity-80"
       }`}
     >
-      <ProductAvatar tipo={product.tipo} className="h-13 w-13 group-hover:scale-105" />
+      <ProductAvatar tipo={product.tipo} imagenUrl={product.imagen_url} className="h-13 w-13 group-hover:scale-105" />
 
       <button
         type="button"

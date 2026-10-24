@@ -7,6 +7,7 @@ use App\Core\Inventory\Infrastructure\Persistence\Product;
 use App\Modules\Restaurant\Infrastructure\Persistence\MenuAssignments;
 use App\Modules\Restaurant\Infrastructure\Persistence\ModifierGroup;
 use App\Modules\Restaurant\Infrastructure\Persistence\PreparationStation;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Carta completa y normalizada para el dispositivo del mozo (spec 002): se descarga una vez
@@ -44,6 +45,8 @@ final class GetMenu
             'productos' => $products->map(fn (Product $product) => [
                 'id' => $product->id,
                 'nombre' => $product->nombre,
+                'descripcion' => $product->descripcion,
+                'imagen_url' => $product->imagen_ruta ? Storage::disk('public')->url($product->imagen_ruta) : null,
                 'precio_venta' => $product->precio_venta,
                 'tipo' => $product->tipo,
                 'categoria_id' => $product->categoria_id,

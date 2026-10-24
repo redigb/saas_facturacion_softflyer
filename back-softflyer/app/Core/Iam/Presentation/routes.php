@@ -1,5 +1,6 @@
 <?php
 
+use App\Core\Iam\Presentation\Controllers\AttendanceController;
 use App\Core\Iam\Presentation\Controllers\AuthController;
 use App\Core\Iam\Presentation\Controllers\ChannelAuthController;
 use App\Core\Iam\Presentation\Controllers\TeamController;
@@ -35,4 +36,10 @@ Route::middleware(['inquilino', 'auth:sanctum', 'cuenta.vigente'])->group(functi
     Route::patch('/usuarios/{user}', [TeamController::class, 'update'])->middleware('permiso:usuarios.editar');
     Route::put('/usuarios/{user}/pin', [TeamController::class, 'setPin'])->middleware('permiso:usuarios.editar');
     Route::delete('/usuarios/{user}/pin', [TeamController::class, 'removePin'])->middleware('permiso:usuarios.editar');
+
+    Route::get('/asistencia/mi-jornada', [AttendanceController::class, 'myDay'])->middleware('permiso:asistencia.marcar');
+    Route::post('/asistencia/marcaciones', [AttendanceController::class, 'mark'])->middleware(['permiso:asistencia.marcar', 'idempotente']);
+    Route::get('/asistencia/resumen', [AttendanceController::class, 'summary'])->middleware('permiso:asistencia.administrar');
+    Route::get('/asistencia/horarios/{user}', [AttendanceController::class, 'schedule'])->middleware('permiso:asistencia.administrar');
+    Route::put('/asistencia/horarios/{user}', [AttendanceController::class, 'saveSchedule'])->middleware('permiso:asistencia.administrar');
 });

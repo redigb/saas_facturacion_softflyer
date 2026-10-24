@@ -101,6 +101,7 @@ final class ManageOrders
     public function send(User $waiter, Order $order, array $items): array
     {
         $this->ensureWorksAt($waiter, $order->sucursal_id);
+        $this->ensureCanOperate($waiter, $order);
         $lines = $this->resolveItems($items);
 
         return DB::transaction(function () use ($waiter, $order, $lines) {
@@ -109,6 +110,9 @@ final class ManageOrders
                 throw new BusinessException('PEDIDO_NO_ABIERTO', 'Este pedido ya no acepta platos. Reábrelo si el cliente pide algo más.');
             }
 
+            // Spec 029: la marca pertenece al envío completo, no al correlativo de
+            // una estación. Así una estación nueva también recibe "AGREGÓ".
+            $isAddition = KitchenTicket::where('pedido_id', $order->id)->exists();
             $tickets = [];
             foreach (collect($lines)->groupBy(fn (array $line) => $line['estacion_id'] ?? 0) as $stationKey => $group) {
                 $stationId = $stationKey === 0 ? null : (int) $stationKey;
@@ -120,6 +124,7 @@ final class ManageOrders
                     'pedido_id' => $order->id,
                     'estacion_preparacion_id' => $stationId,
                     'numero' => $number,
+                    'es_agregado' => $isAddition,
                     'enviada_por' => $waiter->id,
                     'enviada_en' => now(),
                 ]);
@@ -185,6 +190,7 @@ final class ManageOrders
     public function cancel(User $user, Order $order): Order
     {
         $this->ensureWorksAt($user, $order->sucursal_id);
+        $this->ensureCanOperate($user, $order);
 
         return DB::transaction(function () use ($order) {
             $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
@@ -224,6 +230,7 @@ final class ManageOrders
     private function transition(User $user, Order $order, string $from, string $to, string $tableStatus): Order
     {
         $this->ensureWorksAt($user, $order->sucursal_id);
+        $this->ensureCanOperate($user, $order);
 
         return DB::transaction(function () use ($order, $from, $to, $tableStatus) {
             $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
@@ -320,6 +327,22 @@ final class ManageOrders
         if ($branchId === null || ! $user->worksAt($branchId)) {
             throw new AccessDeniedHttpException;
         }
+    }
+
+    /** Spec 025: un pedido lo opera su mozo dueño o la jefatura (encargado/admin). */
+    private function ensureCanOperate(User $user, Order $order): void
+    {
+        if ((int) $order->mozo_id === (int) $user->id) {
+            return;
+        }
+
+        if ($user->hasPermission('restaurante.mesas.gestionar') || $user->hasPermission('panel.ver')) {
+            return;
+        }
+
+        throw new BusinessException('PEDIDO_AJENO', 'Este pedido lo abrió otra persona. Solo ella, el encargado o el admin pueden atenderlo.', 403, [
+            'mozo' => $order->waiter?->nombre,
+        ]);
     }
 
     private function throwTableTaken(int $tableId): never

@@ -37,6 +37,15 @@ class CashSessionController
         return response()->json(['data' => $this->present($session)], 201);
     }
 
+    public function history(Request $request): JsonResponse
+    {
+        $data = $request->validate(['limite' => ['sometimes', 'integer', 'min:1', 'max:50']]);
+
+        return response()->json(['data' => $this->cash->history($request->user(), (int) ($data['limite'] ?? 10))
+            ->map(fn (CashSession $session) => $this->present($session) + ['resumen' => $this->cash->summary($session)])
+            ->values()->all()]);
+    }
+
     public function summary(Request $request, CashSession $cashSession): JsonResponse
     {
         $cashSession->load('register');
@@ -49,6 +58,7 @@ class CashSessionController
                 'tipo' => $movement->tipo,
                 'monto' => $movement->monto,
                 'concepto' => $movement->concepto,
+                'categoria' => $movement->categoria,
                 'creado_en' => $movement->creado_en?->utc()->toIso8601ZuluString(),
             ])->all(),
         ]]);
@@ -60,9 +70,10 @@ class CashSessionController
             'tipo' => ['required', Rule::in([CashMovement::INCOME, CashMovement::EXPENSE])],
             'monto' => ['required', 'numeric', 'gt:0', 'max:9999999.99', 'decimal:0,2'],
             'concepto' => ['required', 'string', 'max:120'],
+            'categoria' => ['nullable', 'string', Rule::in(['SALARIOS', 'ABARROTES', 'SERVICIOS', 'INSUMOS', 'MANTENIMIENTO', 'OTROS', 'RETIRO', 'INGRESO'])],
         ], ['concepto.required' => 'Escribe el concepto del movimiento.']);
 
-        $movement = $this->cash->addMovement($request->user(), $cashSession, $data['tipo'], (string) $data['monto'], $data['concepto']);
+        $movement = $this->cash->addMovement($request->user(), $cashSession, $data['tipo'], (string) $data['monto'], $data['concepto'], $data['categoria'] ?? null);
         $this->notify($cashSession->load('register'), $request);
 
         return response()->json(['data' => [
@@ -70,6 +81,7 @@ class CashSessionController
             'tipo' => $movement->tipo,
             'monto' => $movement->monto,
             'concepto' => $movement->concepto,
+            'categoria' => $movement->categoria,
             'efectivo_esperado' => Money::format($this->cash->expectedCash($cashSession)),
         ]], 201);
     }

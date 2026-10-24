@@ -8,10 +8,12 @@ import { useToast } from "@/app/panel/providers";
 import { apiCommand, apiRequest } from "@/lib/browser-api";
 import { dataOf } from "@/lib/schemas/carta";
 import { memberSchema, roleSchema, type Member } from "@/lib/schemas/equipo";
+import { kitchenAccessSchema } from "@/lib/schemas/cocina";
 
 export const keys = {
   members: ["usuarios"] as const,
   roles: ["roles"] as const,
+  kitchenAccess: (userId: number) => ["cocina", "accesos", userId] as const,
 };
 
 export function useMembers() {
@@ -72,5 +74,26 @@ export function useSetPin() {
         ? apiCommand(`usuarios/${id}/pin`, { method: "DELETE" })
         : apiCommand(`usuarios/${id}/pin`, { method: "PUT", body: { pin } }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: keys.members }),
+  });
+}
+
+export function useKitchenAccess(userId: number | null) {
+  return useQuery({
+    queryKey: keys.kitchenAccess(userId ?? 0),
+    queryFn: async () => (await apiRequest(`cocina/accesos/${userId}`, dataOf(kitchenAccessSchema))).data,
+    enabled: userId !== null,
+  });
+}
+
+export function useSaveKitchenAccess() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, stationIds, general }: { userId: number; stationIds: number[]; general: boolean }) =>
+      apiRequest(`cocina/accesos/${userId}`, dataOf(kitchenAccessSchema), {
+        method: "PUT",
+        body: { estacion_ids: stationIds, general },
+      }),
+    onSuccess: ({ data }) => void queryClient.setQueryData(keys.kitchenAccess(data.usuario_id), data),
   });
 }

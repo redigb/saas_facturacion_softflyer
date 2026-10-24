@@ -25,15 +25,15 @@ final class KitchenBoard
 
     private const WAITER = 'restaurante.pedidos.crear';
 
+    public function __construct(private readonly ManageKitchenAccess $access) {}
+
     /**
      * @param  int|'general'  $station
      * @return Collection<int, KitchenTicket>
      */
     public function tickets(User $user, int $branchId, int|string $station): Collection
     {
-        if (! $user->worksAt($branchId)) {
-            throw new AccessDeniedHttpException;
-        }
+        $this->access->authorize($user, $branchId, $station === 'general' ? null : $station);
 
         $tickets = KitchenTicket::query()
             ->whereHas('order', fn ($query) => $query->where('sucursal_id', $branchId)->whereIn('estado', Order::ACTIVE))
@@ -72,6 +72,22 @@ final class KitchenBoard
     }
 
     /**
+     * Marca la comanda como impresa (spec 027). La primera marca gana: reimprimir no la mueve.
+     */
+    public function markPrinted(User $user, KitchenTicket $ticket): KitchenTicket
+    {
+        $order = Order::whereKey($ticket->pedido_id)->firstOrFail();
+
+        $this->access->authorize($user, $order->sucursal_id, $ticket->estacion_preparacion_id);
+
+        if ($ticket->impresa_en === null) {
+            $ticket->update(['impresa_en' => now()]);
+        }
+
+        return $ticket->fresh(['order.table', 'items.product', 'items.modifiers', 'sender']);
+    }
+
+    /**
      * @param  callable(KitchenTicket): \Illuminate\Support\Collection<int, OrderItem>  $select
      * @return array{ticket: KitchenTicket, order: Order, ready: list<OrderItem>}
      */
@@ -86,6 +102,12 @@ final class KitchenBoard
             }
             if (! in_array($order->estado, Order::ACTIVE, true)) {
                 throw new BusinessException('PEDIDO_NO_ACTIVO', 'El pedido ya está cerrado o anulado.');
+            }
+
+            // El mozo puede entregar un plato listo sin pertenecer a su estación.
+            // Cualquier operación propia de cocina exige la asignación KDS.
+            if ($state !== 'ENTREGADO' || ! $user->hasPermission(self::WAITER)) {
+                $this->access->authorize($user, $order->sucursal_id, $ticket->estacion_preparacion_id);
             }
 
             $ticket->load('items.product');

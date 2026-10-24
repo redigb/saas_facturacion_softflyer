@@ -6,11 +6,18 @@ import { z } from "zod";
 import { useToast } from "@/app/panel/providers";
 import { apiRequest } from "@/lib/browser-api";
 import { dataOf } from "@/lib/schemas/carta";
-import { ticketSchema, type KitchenState, type Ticket } from "@/lib/schemas/cocina";
+import { kitchenStationSchema, ticketSchema, type KitchenState, type Ticket } from "@/lib/schemas/cocina";
 
 export type Station = number | "general";
 
 export const boardKey = (station: Station) => ["cocina", String(station)] as const;
+
+export function useKitchenStations() {
+  return useQuery({
+    queryKey: ["cocina", "estaciones"],
+    queryFn: async () => (await apiRequest("cocina/estaciones", dataOf(z.array(kitchenStationSchema)))).data,
+  });
+}
 
 /** Comandas activas de la estación. Si el tiempo real está caído, se repide cada 15 s. */
 export function useBoard(station: Station | null, live: boolean) {
@@ -60,6 +67,19 @@ export function useDeliver(orderId: number) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["pedidos", orderId] });
       void queryClient.invalidateQueries({ queryKey: ["pedidos"], exact: true });
+    },
+  });
+}
+
+/** La comanda salió del diálogo de impresión del navegador (spec 027). */
+export function usePrintTicket(station: Station) {
+  const queryClient = useQueryClient();
+  const key = boardKey(station);
+
+  return useMutation({
+    mutationFn: (ticketId: number) => apiRequest(`cocina/comandas/${ticketId}/impresa`, dataOf(ticketSchema), { method: "POST" }),
+    onSuccess: ({ data }) => {
+      queryClient.setQueryData<Ticket[]>(key, (tickets = []) => tickets.map((ticket) => (ticket.id === data.id ? data : ticket)));
     },
   });
 }

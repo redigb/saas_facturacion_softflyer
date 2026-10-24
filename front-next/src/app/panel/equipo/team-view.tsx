@@ -9,7 +9,7 @@ import { Icon } from "@/components/icons";
 import { Badge, Button, EmptyState, Switch } from "@/components/ui";
 import type { Member } from "@/lib/schemas/equipo";
 
-export type TeamPermissions = { create: boolean; assignRole: boolean };
+export type TeamPermissions = { create: boolean; assignRole: boolean; manageKitchenAccess: boolean };
 
 type DrawerState = { open: false } | { open: true; member?: Member };
 

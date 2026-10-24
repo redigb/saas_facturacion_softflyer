@@ -84,6 +84,8 @@ class CatalogoSunatSeeder extends Seeder
             ['codigo' => 'YAPE', 'nombre' => 'Yape', 'es_efectivo' => false],
             ['codigo' => 'PLIN', 'nombre' => 'Plin', 'es_efectivo' => false],
             ['codigo' => 'TRANSFERENCIA', 'nombre' => 'Transferencia bancaria', 'es_efectivo' => false],
+            ['codigo' => 'PERSONAL', 'nombre' => 'Personal', 'es_efectivo' => false],
+            ['codigo' => 'APPS_DELIVERY', 'nombre' => 'Apps de delivery', 'es_efectivo' => false],
         ]);
     }
 

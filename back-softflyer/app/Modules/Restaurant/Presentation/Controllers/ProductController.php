@@ -72,4 +72,28 @@ class ProductController
 
         return response()->noContent();
     }
+
+    /** Foto del plato (spec 023): multipart `imagen`; el cliente ya la comprime y aqui se valida igual. */
+    public function uploadImage(Request $request, Product $product): JsonResponse
+    {
+        $request->validate([
+            'imagen' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+        ], [
+            'imagen.required' => 'Adjunta una foto.',
+            'imagen.image' => 'El archivo debe ser una imagen.',
+            'imagen.mimes' => 'Usa una imagen JPG, PNG o WebP.',
+            'imagen.max' => 'La foto no puede superar 4 MB.',
+        ]);
+
+        $product = $this->menu->setProductImage($product, $request->file('imagen'));
+
+        return response()->json(['data' => $this->presenter->product($product)]);
+    }
+
+    public function destroyImage(Product $product): JsonResponse
+    {
+        $product = $this->menu->clearProductImage($product);
+
+        return response()->json(['data' => $this->presenter->product($product)]);
+    }
 }

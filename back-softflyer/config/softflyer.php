@@ -45,6 +45,7 @@ return [
         'comprobantes.reenviar_sunat' => ['comprobantes', 'Reenviar comprobantes a SUNAT'],
         'inventario.ver' => ['inventario', 'Ver inventario'],
         'inventario.ajustar' => ['inventario', 'Ajustar stock'],
+        'inventario.administrar' => ['inventario', 'Administrar artículos y almacenes'],
         'productos.crear' => ['productos', 'Crear productos de la carta'],
         'productos.editar' => ['productos', 'Editar productos de la carta'],
         'productos.eliminar' => ['productos', 'Eliminar productos de la carta'],
@@ -65,6 +66,8 @@ return [
         'restaurante.pedidos.cerrar' => ['restaurante', 'Cerrar pedidos'],
         'restaurante.pedidos.anular_item' => ['restaurante', 'Anular platos ya enviados a cocina'],
         'restaurante.cocina.actualizar_estado' => ['restaurante', 'Cambiar el estado de los platos en cocina'],
+        'asistencia.marcar' => ['asistencia', 'Registrar la asistencia propia'],
+        'asistencia.administrar' => ['asistencia', 'Configurar horarios y revisar la asistencia'],
     ],
 
     // Roles que recibe cada restaurante al darse de alta (Doc. 08 §4). '*' = todos los permisos.
@@ -78,23 +81,25 @@ return [
             'permisos' => [
                 'ventas.crear', 'ventas.anular', 'caja.abrir', 'caja.cerrar', 'caja.ver_movimientos',
                 'caja.registrar_movimiento_manual', 'comprobantes.emitir', 'comprobantes.anular',
-                'clientes.crear', 'clientes.ver', 'restaurante.pedidos.cerrar',
+                'clientes.crear', 'clientes.ver', 'restaurante.pedidos.cerrar', 'asistencia.marcar',
             ],
         ],
         'Encargado de salón' => [
             'descripcion' => 'Organiza el salón y supervisa a los mozos',
             'permisos' => [
                 'restaurante.plano.editar', 'restaurante.mesas.gestionar', 'restaurante.pedidos.crear',
-                'restaurante.pedidos.anular_item', 'clientes.ver',
+                'restaurante.pedidos.anular_item', 'clientes.ver', 'asistencia.marcar',
             ],
         ],
         'Mozo' => [
             'descripcion' => 'Atiende mesas y toma pedidos',
-            'permisos' => ['restaurante.pedidos.crear', 'clientes.ver'],
+            'permisos' => ['restaurante.pedidos.crear', 'clientes.ver', 'asistencia.marcar'],
         ],
         'Cocinero' => [
             'descripcion' => 'Prepara los platos de su estación',
-            'permisos' => ['restaurante.cocina.actualizar_estado'],
+            'permisos' => [
+                'restaurante.cocina.actualizar_estado', 'inventario.ver', 'inventario.ajustar', 'asistencia.marcar',
+            ],
         ],
     ],
 

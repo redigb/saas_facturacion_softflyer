@@ -20,16 +20,34 @@ export const cashSessionSchema = z.object({
 
 const summary = z.object({
   ventas: z.object({ cantidad: z.number(), total: money }),
+  ticket_promedio: money,
+  ultima_venta: z.object({ monto: money, creado_en: z.string() }).nullable(),
+  ventas_por_hora: z.array(z.object({ hora: z.string(), monto: money, cantidad: z.number() })),
   por_metodo: z.array(z.object({ metodo_pago_id: z.number(), codigo: z.string(), nombre: z.string(), monto: money, cantidad: z.number() })),
   ingresos: money,
   egresos: money,
   efectivo_esperado: money,
+  ordenes: z.array(
+    z.object({
+      venta_id: z.number(),
+      pedido_id: z.number().nullable(),
+      numero: z.number().nullable(),
+      tipo: z.string().nullable(),
+      mesa: z.string().nullable(),
+      cliente: z.string().nullable(),
+      items: z.number(),
+      metodos_pago: z.array(z.string()),
+      total: money,
+      cobrado_por: z.string().nullable(),
+      creado_en: z.string(),
+    }),
+  ),
 });
 
 export const cashSummarySchema = cashSessionSchema.extend({
   resumen: summary,
   movimientos: z
-    .array(z.object({ id: z.number(), tipo: z.enum(["INGRESO", "EGRESO"]), monto: money, concepto: z.string(), creado_en: z.string().nullable() }))
+    .array(z.object({ id: z.number(), tipo: z.enum(["INGRESO", "EGRESO"]), monto: money, concepto: z.string(), categoria: z.string().nullable(), creado_en: z.string().nullable() }))
     .default([]),
 });
 
@@ -37,7 +55,9 @@ export const closedSessionSchema = cashSessionSchema.extend({ resumen: summary }
 
 export const paymentMethodSchema = z.object({ id: z.number(), codigo: z.string(), nombre: z.string(), es_efectivo: z.boolean() });
 
-export const movementSchema = z.object({ id: z.number(), tipo: z.enum(["INGRESO", "EGRESO"]), monto: money, concepto: z.string(), efectivo_esperado: money });
+export const movementSchema = z.object({ id: z.number(), tipo: z.enum(["INGRESO", "EGRESO"]), monto: money, concepto: z.string(), categoria: z.string().nullable(), efectivo_esperado: money });
+
+export const cashHistorySchema = z.array(cashSessionSchema.extend({ resumen: summary }));
 
 export const receiptSchema = z.object({
   id: z.number(),
@@ -68,6 +88,7 @@ export const chargeResultSchema = z.object({
 
 export type CashSession = z.infer<typeof cashSessionSchema>;
 export type CashSummary = z.infer<typeof cashSummarySchema>;
+export type CashHistoryItem = z.infer<typeof cashHistorySchema>[number];
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 export type ChargeResult = z.infer<typeof chargeResultSchema>;
 export type Receipt = z.infer<typeof receiptSchema>;

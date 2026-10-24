@@ -155,6 +155,16 @@ A dónde va cada plato: Cocina, Bar, Parrilla, Postres. Cada estación tiene su 
 | nombre | VARCHAR | Único por inquilino |
 | es_activa | BOOLEAN | |
 
+### `usuario_estacion_preparacion`
+Qué estaciones KDS puede consultar y operar cada integrante de cocina/barra. Vive en el módulo Restaurante para conservar la dirección de dependencias hacia IAM.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| inquilino_id, usuario_id | BIGINT | El usuario debe tener `restaurante.cocina.actualizar_estado` |
+| estacion_preparacion_id | BIGINT null | Nulo = puede atender la bandeja General de platos sin estación |
+
+La autorización se aplica a las consultas y mutaciones HTTP, a la impresión y al canal privado de Reverb. `panel.ver` conserva acceso de supervisión a todas las estaciones.
+
 ### `categorias`
 | Columna | Tipo | Notas |
 |---|---|---|
@@ -179,6 +189,8 @@ Un solo catálogo para lo que se vende y lo que se compra.
 | estacion_preparacion_id | BIGINT null | Sobrescribe la de la categoría |
 | es_vendible | BOOLEAN | `false` en insumos |
 | controla_stock | BOOLEAN | `true` en bebidas embotelladas e insumos; los platos descuentan vía receta |
+| categoria_inventario | VARCHAR null | `ALIMENTO`, `BEBIDA`, `LIMPIEZA`, `EMPAQUE`, `UTENSILIO`, `EQUIPO`, `OTRO` |
+| naturaleza_inventario | VARCHAR null | `CONSUMIBLE` o `REUTILIZABLE`; obligatorio cuando controla stock |
 | imagen_ruta | VARCHAR null | |
 | es_activo | BOOLEAN | |
 
@@ -191,8 +203,14 @@ Un solo catálogo para lo que se vende y lo que se compra.
 
 ## 6. Inventario, recetas y compras (bloque F)
 
+**Alcance operativo acordado:** Inventario no se limita a los platos vendibles. Debe cubrir todo lo que el restaurante controla: alimentos y verduras, bebidas, insumos de limpieza, empaques, utensilios, equipos menores y otros objetos. Los consumibles llevan cantidad y kardex; los reutilizables llevan conteo físico y estado. Cocina y Barra podrán registrar conteos y movimientos de sus almacenes/estaciones autorizadas, mientras el administrador tendrá visibilidad completa. Todo ajuste conserva usuario, fecha, motivo y movimiento compensatorio; nunca se sobrescribe un saldo sin trazabilidad.
+
+### Fichas de preparación operativa
+
+Antes del inventario cuantificado, cada plato o bebida puede tener una ficha consultable por Cocina, Barra y administradores: `fichas_preparacion` (`producto_id`, `procedimiento`, `notas`, `actualizado_por`) e `ingredientes_preparacion` (`ficha_preparacion_id`, `nombre`, `cantidad`, `orden`). Son instrucciones operativas; no mueven existencias. El acceso del personal se limita a sus estaciones KDS asignadas. La receta de inventario descrita abajo enlaza insumos reales y será la fuente del descuento de stock.
+
 ### `almacenes`
-`inquilino_id`, `sucursal_id`, `nombre`, `es_principal`. Normalmente uno por local ("Almacén" o "Cocina").
+`inquilino_id`, `sucursal_id`, `estacion_preparacion_id` (nulo para el general), `nombre`, `es_principal`, `es_activo`. Hay un almacén general y uno por estación activa de cada local. El personal operativo solo accede a los almacenes de sus asignaciones KDS; el administrador accede a todos.
 
 ### `recetas` — el corazón del inventario de un restaurante
 Qué insumos consume **una unidad** de un plato.
@@ -208,16 +226,18 @@ Qué insumos consume **una unidad** de un plato.
 **Decisión:** el stock se descuenta **al cobrar** (al crear la venta), no al enviar la comanda. Si un plato ya enviado a cocina se anula, se registra como `MERMA`, porque el insumo sí se gastó.
 
 ### `existencias` (derivada)
-`inquilino_id`, `almacen_id`, `producto_id`, `cantidad`, `costo_promedio`. `UNIQUE (almacen_id, producto_id)`.
+`inquilino_id`, `almacen_id`, `producto_id`, `cantidad`, `stock_minimo`, `cantidad_disponible`, `cantidad_danada`, `cantidad_perdida`. `UNIQUE (almacen_id, producto_id)`. Los tres conteos por estado se usan en reutilizables; en consumibles basta `cantidad`.
 
 ### `movimientos_inventario` (kardex, fuente de verdad)
 | Columna | Tipo | Notas |
 |---|---|---|
 | inquilino_id, almacen_id, producto_id | BIGINT | |
 | tipo | VARCHAR | `ENTRADA`, `SALIDA`, `AJUSTE`, `MERMA` (CHECK) |
-| cantidad | NUMERIC(14,4) | Siempre positiva; el signo lo da `tipo` |
-| costo_unitario | NUMERIC(12,4) | |
-| referencia_tipo, referencia_id | | Venta, compra o ajuste que lo originó |
+| sentido | VARCHAR | `ENTRADA` o `SALIDA`; permite ajustes positivos o negativos |
+| cantidad | NUMERIC(14,4) | Positiva; puede ser cero solo para auditar un cambio de estado sin variar el total |
+| saldo_anterior, saldo_resultante | NUMERIC(14,4) | Evidencia del cálculo aplicado dentro de la transacción |
+| motivo | VARCHAR | Obligatorio para toda operación manual |
+| estado_anterior, estado_resultante | JSONB null | Disponible, dañado y perdido en reutilizables |
 | usuario_id | BIGINT | |
 | creado_en | timestamptz | Sin `actualizado_en`: el kardex no se edita, se corrige con otro movimiento |
 
@@ -329,8 +349,17 @@ No son tablas, pero el modelo está pensado para ellos. Todos son canales **priv
 | Canal | Quién escucha | Eventos |
 |---|---|---|
 | `sucursal.{id}.salon` | Mozos, cajero | `MesaActualizada`, `PedidoActualizado`, `PlanoActualizado` |
-| `sucursal.{id}.estacion.{id}` | KDS e impresora de esa estación | `ComandaEnviada`, `PlatoAnulado` |
+| `sucursal.{id}.estacion.{id}` | Personal asignado al KDS e impresora de esa estación; supervisores con `panel.ver` | `ComandaEnviada`, `PlatoAnulado` |
 | `sucursal.{id}.mozo.{usuario_id}` | La mesera | `PlatoListo` (para recoger en cocina) |
+
+### 8.5 Asistencia geolocalizada
+
+La asistencia del personal se registra con hora del servidor y validación de ubicación puntual, sin seguimiento en segundo plano. Cada sucursal puede configurar `latitud`, `longitud` y `radio_geocerca_metros`; Laravel calcula si la coordenada recibida está dentro del radio y rechaza precisiones mayores de 100 metros.
+
+- `horarios_trabajo`: `inquilino_id`, `usuario_id`, `sucursal_id`, días ISO de la semana, hora de entrada/salida, tolerancia y estado activo.
+- `marcaciones_asistencia`: `inquilino_id`, `usuario_id`, `sucursal_id`, tipo (`ENTRADA`/`SALIDA`), `marcado_en` fijado por el servidor, latitud, longitud, precisión, distancia y estado (`PUNTUAL`/`TARDANZA`/`REGISTRADA`).
+
+El permiso `asistencia.marcar` solo opera sobre el usuario autenticado. `asistencia.administrar` permite configurar horarios y consultar el resumen del equipo. Las tres tablas conservan aislamiento de inquilino; el alcance del usuario también se valida contra la sucursal.
 
 ---
 

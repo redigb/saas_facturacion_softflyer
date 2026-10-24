@@ -1,10 +1,10 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { useToast } from "@/app/panel/providers";
-import { apiCommand, apiRequest, ApiRequestError } from "@/lib/browser-api";
+import { apiCommand, apiRequest, apiUpload, ApiRequestError } from "@/lib/browser-api";
 import {
   categorySchema,
   dataOf,
@@ -26,6 +26,11 @@ export const keys = {
 };
 
 const productPage = z.object({ data: z.array(productSchema), meta: paginationSchema });
+
+/** El menú que usa Pedidos (`GET /carta`) se arma de estas listas: que no quede con datos viejos (spec 019). */
+function refreshMenu(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: ["carta"] });
+}
 
 export function useCategories() {
   return useQuery({
@@ -83,6 +88,7 @@ export function useSaveProduct() {
           : [...current, data],
       );
       void queryClient.invalidateQueries({ queryKey: keys.categories });
+      refreshMenu(queryClient);
     },
   });
 }
@@ -114,6 +120,7 @@ export function useQuickProductUpdate() {
       queryClient.setQueryData<Product[]>(keys.products, (current = []) =>
         current.map((product) => (product.id === data.id ? data : product)),
       );
+      refreshMenu(queryClient);
     },
   });
 
@@ -128,6 +135,7 @@ export function useDeleteProduct() {
     onSuccess: (_, id) => {
       queryClient.setQueryData<Product[]>(keys.products, (current = []) => current.filter((product) => product.id !== id));
       void queryClient.invalidateQueries({ queryKey: keys.categories });
+      refreshMenu(queryClient);
     },
   });
 }
@@ -142,6 +150,7 @@ export function useSaveCategory() {
       void queryClient.invalidateQueries({ queryKey: keys.categories });
       // La estación de la categoría cambia la estación efectiva de sus platos.
       void queryClient.invalidateQueries({ queryKey: keys.products });
+      refreshMenu(queryClient);
     },
   });
 }
@@ -154,6 +163,7 @@ export function useDeleteCategory() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.categories });
       void queryClient.invalidateQueries({ queryKey: keys.products });
+      refreshMenu(queryClient);
     },
   });
 }
@@ -177,6 +187,7 @@ export function useReorderCategories() {
       queryClient.setQueryData(keys.categories, context?.previous);
       toast({ tone: "error", message: `No se guardó el nuevo orden. ${errorMessage(error)}` });
     },
+    onSuccess: () => refreshMenu(queryClient),
   });
 }
 
@@ -186,7 +197,10 @@ export function useSaveStation() {
   return useMutation({
     mutationFn: ({ id, body }: { id?: number; body: Partial<Pick<Station, "nombre" | "es_activa">> }) =>
       apiRequest(id ? `estaciones/${id}` : "estaciones", dataOf(stationSchema), { method: id ? "PATCH" : "POST", body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: keys.stations }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.stations });
+      refreshMenu(queryClient);
+    },
   });
 }
 
@@ -199,7 +213,10 @@ export function useSaveModifierGroup() {
         method: id ? "PATCH" : "POST",
         body,
       }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: keys.groups }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.groups });
+      refreshMenu(queryClient);
+    },
   });
 }
 
@@ -208,7 +225,43 @@ export function useDeleteModifierGroup() {
 
   return useMutation({
     mutationFn: (id: number) => apiCommand(`modificador-grupos/${id}`, { method: "DELETE" }),
-    onSuccess: (_, id) =>
-      queryClient.setQueryData<ModifierGroup[]>(keys.groups, (current = []) => current.filter((group) => group.id !== id)),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<ModifierGroup[]>(keys.groups, (current = []) => current.filter((group) => group.id !== id));
+      refreshMenu(queryClient);
+    },
+  });
+}
+
+/** Foto del plato (spec 023): sube multipart y refresca la lista y el menú del mozo. */
+export function useSaveProductImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, file }: { id: number; file: File }) => {
+      const formData = new FormData();
+      formData.append("imagen", file, "foto.jpg");
+
+      return apiUpload(`productos/${id}/imagen`, formData, dataOf(productSchema));
+    },
+    onSuccess: ({ data }) => {
+      queryClient.setQueryData<Product[]>(keys.products, (current = []) =>
+        current.map((product) => (product.id === data.id ? data : product)),
+      );
+      refreshMenu(queryClient);
+    },
+  });
+}
+
+export function useClearProductImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => apiRequest(`productos/${id}/imagen`, dataOf(productSchema), { method: "DELETE" }),
+    onSuccess: ({ data }) => {
+      queryClient.setQueryData<Product[]>(keys.products, (current = []) =>
+        current.map((product) => (product.id === data.id ? data : product)),
+      );
+      refreshMenu(queryClient);
+    },
   });
 }

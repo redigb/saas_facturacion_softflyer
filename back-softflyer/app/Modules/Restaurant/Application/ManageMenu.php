@@ -9,8 +9,10 @@ use App\Core\Inventory\Infrastructure\Persistence\Product;
 use App\Modules\Restaurant\Infrastructure\Persistence\MenuAssignments;
 use App\Modules\Restaurant\Infrastructure\Persistence\ModifierGroup;
 use App\Shared\Exceptions\BusinessException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Altas y cambios de la carta (spec 002). Guarda lo del Core (categorias, productos)
@@ -106,6 +108,33 @@ final class ManageMenu
     public function deleteProduct(Product $product): void
     {
         $product->delete();
+    }
+
+    /** Foto del plato (spec 023): guarda la nueva en el disco publico y borra la anterior. */
+    public function setProductImage(Product $product, UploadedFile $file): Product
+    {
+        $this->deleteProductImageFile($product);
+
+        $product->imagen_ruta = $file->store('productos/'.$product->inquilino_id, 'public');
+        $product->save();
+
+        return $product->refresh();
+    }
+
+    public function clearProductImage(Product $product): Product
+    {
+        $this->deleteProductImageFile($product);
+        $product->imagen_ruta = null;
+        $product->save();
+
+        return $product->refresh();
+    }
+
+    private function deleteProductImageFile(Product $product): void
+    {
+        if ($product->imagen_ruta) {
+            Storage::disk('public')->delete($product->imagen_ruta);
+        }
     }
 
     public function saveModifierGroup(ModifierGroup $group, array $data): ModifierGroup

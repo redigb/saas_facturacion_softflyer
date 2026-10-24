@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useChargeOrder, usePaymentMethods } from "@/app/panel/caja/queries";
 import { ReceiptTicket } from "@/app/panel/caja/receipt-ticket";
@@ -14,36 +14,38 @@ import { fromCents, toCents, type ChargeResult, type CustomerDraft, type Payment
 import type { Order } from "@/lib/schemas/pedidos";
 
 /** Cobro de un pedido: elegir platos (cuenta dividida), cómo se paga y confirmar (spec 009). */
-export function ChargeDrawer({ orderId, sessionId, onClose }: { orderId: number; sessionId: number; onClose: () => void }) {
+type ChargePresentation = "drawer" | "modal";
+
+export function ChargeDrawer({ orderId, sessionId, onClose, presentation = "drawer" }: { orderId: number; sessionId: number; onClose: () => void; presentation?: ChargePresentation }) {
   const order = useOrder(orderId);
   const methods = usePaymentMethods();
 
   if (order.isPending || methods.isPending) {
     return (
-      <Drawer title="Cobrar cuenta" open onClose={onClose} footer={<Button variant="secondary" onClick={onClose}>Cerrar</Button>}>
+      <ChargeFrame presentation={presentation} title="Cobrar cuenta" onClose={onClose} footer={<Button variant="secondary" onClick={onClose}>Cerrar</Button>}>
         <div className="space-y-3">
           <Skeleton className="h-16" />
           <Skeleton className="h-16" />
           <Skeleton className="h-24" />
         </div>
-      </Drawer>
+      </ChargeFrame>
     );
   }
   if (order.isError || methods.isError) {
     return (
-      <Drawer title="Cobrar cuenta" open onClose={onClose} footer={<Button variant="secondary" onClick={onClose}>Cerrar</Button>}>
+      <ChargeFrame presentation={presentation} title="Cobrar cuenta" onClose={onClose} footer={<Button variant="secondary" onClick={onClose}>Cerrar</Button>}>
         <p className="font-bold text-red-700">No pudimos cargar la cuenta.</p>
         <p className="mt-1 text-sm text-slate-600">{(order.error ?? methods.error)?.message}</p>
-      </Drawer>
+      </ChargeFrame>
     );
   }
 
-  return <ChargeForm order={order.data} methods={methods.data} sessionId={sessionId} onClose={onClose} />;
+  return <ChargeForm order={order.data} methods={methods.data} sessionId={sessionId} onClose={onClose} presentation={presentation} />;
 }
 
 type Done = { result: ChargeResult; label: string };
 
-function ChargeForm({ order, methods, sessionId, onClose }: { order: Order; methods: PaymentMethod[]; sessionId: number; onClose: () => void }) {
+function ChargeForm({ order, methods, sessionId, onClose, presentation }: { order: Order; methods: PaymentMethod[]; sessionId: number; onClose: () => void; presentation: ChargePresentation }) {
   const charge = useChargeOrder(order.id, sessionId);
   const toast = useToast();
   const items = order.detalles.filter((item) => !item.anulado && !item.cobrado);
@@ -137,13 +139,15 @@ function ChargeForm({ order, methods, sessionId, onClose }: { order: Order; meth
   }
 
   if (done) {
-    return <ChargeDone done={done} onClose={onClose} />;
+    return <ChargeDone done={done} onClose={onClose} presentation={presentation} />;
   }
 
   return (
-    <Drawer
+    <ChargeFrame
+      presentation={presentation}
       title={`Cobrar ${order.mesa ? `mesa ${order.mesa.codigo}` : "para llevar"} · #${order.numero}`}
-      open
+      orderNumber={order.numero}
+      total={fromCents(total)}
       onClose={onClose}
       footer={
         <>
@@ -156,7 +160,7 @@ function ChargeForm({ order, methods, sessionId, onClose }: { order: Order; meth
         </>
       }
     >
-      <div className="space-y-6">
+      <div className={`space-y-6 ${presentation === "modal" ? "mx-auto w-full max-w-2xl" : ""}`}>
         <section aria-label="Platos a cobrar">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-xs font-bold tracking-widest text-slate-400 uppercase">Platos</h3>
@@ -220,7 +224,7 @@ function ChargeForm({ order, methods, sessionId, onClose }: { order: Order; meth
 
             return (
               <div key={payment.key} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
-                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Método de pago">
+                <div className={presentation === "modal" ? "grid grid-cols-2 gap-2 sm:grid-cols-3" : "flex flex-wrap gap-2"} role="radiogroup" aria-label="Método de pago">
                   {methods.map((option) => (
                     <button
                       key={option.id}
@@ -235,6 +239,15 @@ function ChargeForm({ order, methods, sessionId, onClose }: { order: Order; meth
                       {option.nombre}
                     </button>
                   ))}
+                  {presentation === "modal" && payments.length === 1 ? (
+                    <button
+                      type="button"
+                      onClick={addPayment}
+                      className="min-h-[48px] rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-bold text-tinta transition-all hover:border-celeste hover:bg-celeste/5 active:scale-[0.98]"
+                    >
+                      Mixto
+                    </button>
+                  ) : null}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -288,10 +301,12 @@ function ChargeForm({ order, methods, sessionId, onClose }: { order: Order; meth
             );
           })}
 
-          <Button variant="secondary" onClick={addPayment} disabled={missing <= 0}>
-            <Icon name="mas" className="h-4.5 w-4.5" />
-            Otro método de pago
-          </Button>
+          {presentation === "drawer" || payments.length > 1 ? (
+            <Button variant="secondary" onClick={addPayment} disabled={missing <= 0}>
+              <Icon name="mas" className="h-4.5 w-4.5" />
+              Otro método de pago
+            </Button>
+          ) : null}
         </section>
 
         <section aria-label="Datos del cliente">
@@ -356,11 +371,11 @@ function ChargeForm({ order, methods, sessionId, onClose }: { order: Order; meth
           {change > 0 ? <Line label="Vuelto" value={fromCents(change)} tone="ok" /> : null}
         </section>
       </div>
-    </Drawer>
+    </ChargeFrame>
   );
 }
 
-function ChargeDone({ done, onClose }: { done: Done; onClose: () => void }) {
+function ChargeDone({ done, onClose, presentation }: { done: Done; onClose: () => void; presentation: ChargePresentation }) {
   const { result, label } = done;
   const closed = result.pedido.estado === "CERRADO";
   const [showReceipt, setShowReceipt] = useState(false);
@@ -370,9 +385,9 @@ function ChargeDone({ done, onClose }: { done: Done; onClose: () => void }) {
   }
 
   return (
-    <Drawer
+    <ChargeFrame
+      presentation={presentation}
       title="Cobro registrado"
-      open
       onClose={onClose}
       footer={
         <>
@@ -410,7 +425,48 @@ function ChargeDone({ done, onClose }: { done: Done; onClose: () => void }) {
         ) : null}
         {!closed ? <Badge variant="warning">Quedan S/ {result.pedido.pendiente} por cobrar</Badge> : null}
       </div>
-    </Drawer>
+    </ChargeFrame>
+  );
+}
+
+function ChargeFrame({ presentation, title, orderNumber, total, onClose, footer, children }: {
+  presentation: ChargePresentation;
+  title: string;
+  orderNumber?: number;
+  total?: string;
+  onClose: () => void;
+  footer: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    if (presentation !== "modal") return;
+    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && onClose();
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose, presentation]);
+
+  if (presentation === "drawer") {
+    return <Drawer title={title} open onClose={onClose} footer={footer}>{children}</Drawer>;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+      <button type="button" aria-label="Cerrar cobro" onClick={onClose} className="fixed inset-0 bg-tinta/60 backdrop-blur-xs animate-in fade-in" />
+      <section role="dialog" aria-modal="true" aria-label={title} className="relative z-10 flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl animate-in zoom-in-95 sm:max-h-[calc(100dvh-3rem)]">
+        <header className="relative shrink-0 bg-linear-to-r from-azul-oscuro via-azul to-celeste px-5 py-6 text-white sm:px-8 sm:py-8">
+          {orderNumber !== undefined ? <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-extrabold">#{String(orderNumber).padStart(4, "0")}</span> : null}
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-xl text-white/80 transition-colors hover:bg-white/15 hover:text-white active:scale-[0.98]">
+            <Icon name="cerrar" className="h-5 w-5" />
+          </button>
+          <div className="mt-2 text-center">
+            <p className="text-[10px] font-extrabold tracking-[0.25em] text-white/70 uppercase">{total ? "Total a cobrar" : title}</p>
+            {total ? <p className="mt-1 text-4xl font-black tabular-nums sm:text-5xl">S/ {total}</p> : null}
+          </div>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-niebla/50 px-4 py-5 sm:px-8 sm:py-6">{children}</div>
+        <footer className="flex shrink-0 flex-wrap items-center gap-2.5 border-t border-slate-100 bg-white px-4 py-4 sm:px-8">{footer}</footer>
+      </section>
+    </div>
   );
 }
 

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(Get-Service:*)",
+      "Shell(Where-Object:*)",
+      "Shell(Select-Object:*)",
+      "Shell(php -v)",
+      "Shell(node -v)",
+      "powershell"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

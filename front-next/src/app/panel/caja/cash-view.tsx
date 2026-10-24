@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { ChargeDrawer } from "@/app/panel/caja/charge-drawer";
+import { CashDashboard } from "@/app/panel/caja/cash-dashboard";
 import { ReceiptTicket } from "@/app/panel/caja/receipt-ticket";
 import { useBillableOrders, useCashSession, useCashSummary, useOpenCash, useReceipts, cashKeys } from "@/app/panel/caja/queries";
 import { TurnActions } from "@/app/panel/caja/turn-actions";
@@ -168,24 +169,23 @@ function Turn({ session, onClosed }: { session: CashSession; onClosed: (session:
   const totals = summary.data?.resumen;
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-6 pb-6">
+      <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-tinta">{session.caja.nombre}</h1>
-          <p className="text-sm text-slate-500">
-            Abierta a las {new Date(session.abierta_en).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })} · apertura{" "}
-            <span className="tabular-nums">S/ {session.monto_apertura}</span>
+          <h1 className="text-3xl font-bold tracking-tight text-tinta">Caja</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500">
+            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" />Turno iniciado {new Date(session.abierta_en).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</span>
+            <span aria-hidden="true">·</span>
+            <span className="tabular-nums">Duración: {formatDuration(minutesSince(session.abierta_en, now))}</span>
+            <span aria-hidden="true">·</span>
+            <span>{session.caja.nombre}</span>
           </p>
         </div>
         <TurnActions session={session} onClosed={onClosed} expectedCash={totals?.efectivo_esperado ?? null} />
       </header>
 
-      <section aria-label="Resumen del turno" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Efectivo esperado" amount={totals?.efectivo_esperado} highlight />
-        <Stat label={`Ventas${totals ? ` (${totals.ventas.cantidad})` : ""}`} amount={totals?.ventas.total} />
-        <Stat label="Ingresos manuales" amount={totals?.ingresos} />
-        <Stat label="Egresos manuales" amount={totals?.egresos} />
-      </section>
+      {summary.isError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><p className="font-bold">No pudimos actualizar el resumen del turno.</p><p className="mt-1">{summary.error.message}</p><Button variant="secondary" className="mt-3" onClick={() => void summary.refetch()}>Reintentar</Button></div> : null}
+      <CashDashboard session={session} data={summary.data} loading={summary.isPending} />
 
       <section aria-label="Cuentas por cobrar">
         <div className="mb-3 flex items-center justify-between">
@@ -249,15 +249,6 @@ function Turn({ session, onClosed }: { session: CashSession; onClosed: (session:
   );
 }
 
-function Stat({ label, amount, highlight = false }: { label: string; amount?: string; highlight?: boolean }) {
-  return (
-    <div className={`rounded-2xl border p-4 ${highlight ? "border-azul/20 bg-azul/5" : "border-slate-200 bg-white"}`}>
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
-      <div className="mt-1">{amount === undefined ? <Skeleton className="h-7 w-24" /> : <PriceText amount={amount} size="xl" />}</div>
-    </div>
-  );
-}
-
 function BillCard({ order, now, onOpen }: { order: OrderSummary; now: number; onOpen: () => void }) {
   const waiting = minutesSince(order.abierto_en, now);
 
@@ -284,4 +275,10 @@ function BillCard({ order, now, onOpen }: { order: OrderSummary; now: number; on
       </div>
     </button>
   );
+}
+
+function formatDuration(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours > 0 ? `${hours}h ${rest}m` : `${rest}m`;
 }

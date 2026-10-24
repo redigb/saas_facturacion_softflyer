@@ -41,6 +41,25 @@ class OrderTest extends DatabaseTestCase
         $this->as($this->waiter, 'GET', 'pedidos')->assertJsonCount(2, 'data');
     }
 
+    public function test_order_list_can_filter_the_operational_day_and_includes_card_details(): void
+    {
+        $order = $this->open($this->ids['m1'])->json('data.id');
+        $this->send($order, [['producto_id' => $this->ids['pan'], 'cantidad' => 2]])->assertCreated();
+
+        $today = now()->setTimezone('America/Lima')->toDateString();
+        $this->as($this->admin, 'GET', "pedidos?estado=ABIERTO,POR_COBRAR,CERRADO&fecha={$today}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $order)
+            ->assertJsonPath('data.0.cerrado_en', null)
+            ->assertJsonPath('data.0.detalles_resumen.0.nombre', 'Pan al ajo')
+            ->assertJsonPath('data.0.detalles_resumen.0.cantidad', '2.000')
+            ->assertJsonPath('data.0.detalles_resumen.0.subtotal', '12.00');
+
+        $this->as($this->admin, 'GET', 'pedidos?fecha=2026-02-30')->assertUnprocessable();
+        $this->as($this->admin, 'GET', 'pedidos?estado=DESCONOCIDO')->assertUnprocessable();
+    }
+
     public function test_a_table_cannot_be_in_two_open_orders(): void
     {
         $first = $this->open($this->ids['m1'])->json('data.id');

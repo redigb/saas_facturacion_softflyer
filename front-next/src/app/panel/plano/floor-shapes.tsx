@@ -22,23 +22,24 @@ export const TABLE_THEMES: Record<string, ShapeTheme> = {
     badgeBg: "rgba(12, 94, 167, 0.08)",
     badgeText: "#0c5ea7",
   },
+  // Ocupada y por cobrar van rellenas, igual que las tarjetas del panel (spec 018).
   OCUPADA: {
-    tableBg: "#fffbeb",
-    tableBorder: "#f59e0b",
-    chairBg: "#fef3c7",
-    chairBorder: "#d97706",
-    textColor: "#78350f",
-    badgeBg: "rgba(245, 158, 11, 0.15)",
-    badgeText: "#b45309",
-  },
-  POR_COBRAR: {
-    tableBg: "#f0f9ff",
-    tableBorder: "#0284c7",
+    tableBg: "#0c5ea7",
+    tableBorder: "#083f71",
     chairBg: "#e0f2fe",
     chairBorder: "#0369a1",
-    textColor: "#0c4a6e",
-    badgeBg: "rgba(2, 132, 199, 0.15)",
-    badgeText: "#0369a1",
+    textColor: "#ffffff",
+    badgeBg: "rgba(255, 255, 255, 0.24)",
+    badgeText: "#ffffff",
+  },
+  POR_COBRAR: {
+    tableBg: "#f59e0b",
+    tableBorder: "#b45309",
+    chairBg: "#fef3c7",
+    chairBorder: "#d97706",
+    textColor: "#ffffff",
+    badgeBg: "rgba(255, 255, 255, 0.28)",
+    badgeText: "#ffffff",
   },
   BLOQUEADA: {
     tableBg: "#f8fafc",
@@ -188,9 +189,12 @@ function RoundChairs({
 export function ArchitecturalTableView({
   item,
   error,
+  badge,
 }: {
   item: Extract<FloorItem, { kind: "mesa" }>;
   error: boolean;
+  /** Reemplaza la cápsula de capacidad (ej. `#42` con pedido abierto, spec 018). */
+  badge?: string;
 }) {
   const theme = error ? TABLE_THEMES.ERROR : TABLE_THEMES[item.estado] ?? TABLE_THEMES.LIBRE;
   const w = item.ancho;
@@ -198,6 +202,8 @@ export function ArchitecturalTableView({
   const minDim = Math.min(w, h);
   const fontSize = Math.max(13, Math.min(20, minDim * 0.24));
   const badgeFontSize = Math.max(9, fontSize * 0.62);
+  const capsule = badge ?? `${item.capacidad} pers.`;
+  const capsuleWidth = badge ? capsule.length * badgeFontSize * 0.66 + badgeFontSize * 1.3 : fontSize * 3;
 
   return (
     <g>
@@ -279,12 +285,12 @@ export function ArchitecturalTableView({
         {item.codigo}
       </text>
 
-      {/* Cápsula de capacidad (ej. "4p") */}
+      {/* Cápsula: capacidad o `#pedido` cuando hay cuenta abierta (spec 018) */}
       <g transform={`translate(${w / 2} ${h / 2 + fontSize * 0.85})`} className="pointer-events-none select-none">
         <rect
-          x={-fontSize * 1.5}
+          x={-capsuleWidth / 2}
           y={-badgeFontSize * 0.85}
-          width={fontSize * 3}
+          width={capsuleWidth}
           height={badgeFontSize * 1.7}
           rx={badgeFontSize * 0.85}
           fill={theme.badgeBg}
@@ -299,7 +305,7 @@ export function ArchitecturalTableView({
           fontSize={badgeFontSize}
           className="font-sans"
         >
-          {item.capacidad} pers.
+          {capsule}
         </text>
       </g>
     </g>

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { apiRequest } from "@/lib/browser-api";
-import { cashSessionSchema, cashSummarySchema, chargeResultSchema, closedSessionSchema, movementSchema, paymentMethodSchema, receiptSchema } from "@/lib/schemas/caja";
+import { cashHistorySchema, cashSessionSchema, cashSummarySchema, chargeResultSchema, closedSessionSchema, movementSchema, paymentMethodSchema, receiptSchema } from "@/lib/schemas/caja";
 import { dataOf } from "@/lib/schemas/carta";
 import { orderSummarySchema, type OrderSummary } from "@/lib/schemas/pedidos";
 
@@ -14,6 +14,7 @@ export const cashKeys = {
   billable: ["caja", "por-cobrar"] as const,
   methods: ["caja", "metodos-pago"] as const,
   receipts: (sessionId: number) => ["caja", "comprobantes", sessionId] as const,
+  history: ["caja", "historial"] as const,
 };
 
 /** El turno abierto del usuario, o null si no abrió caja. */
@@ -29,6 +30,14 @@ export function useCashSummary(sessionId: number | null) {
     queryKey: cashKeys.summary(sessionId ?? 0),
     queryFn: async () => (await apiRequest(`sesiones-caja/${sessionId}/resumen`, dataOf(cashSummarySchema))).data,
     enabled: sessionId !== null,
+  });
+}
+
+export function useCashHistory(enabled: boolean) {
+  return useQuery({
+    queryKey: cashKeys.history,
+    queryFn: async () => (await apiRequest("sesiones-caja/historial?limite=15", dataOf(cashHistorySchema))).data,
+    enabled,
   });
 }
 
@@ -63,7 +72,10 @@ export function useOpenCash() {
 
   return useMutation({
     mutationFn: (amount: string) => apiRequest("sesiones-caja", dataOf(cashSessionSchema), { method: "POST", body: { monto_apertura: amount } }),
-    onSuccess: ({ data }) => queryClient.setQueryData(cashKeys.session, data),
+    onSuccess: ({ data }) => {
+      queryClient.setQueryData(cashKeys.session, data);
+      void queryClient.invalidateQueries({ queryKey: cashKeys.history });
+    },
   });
 }
 
@@ -71,7 +83,7 @@ export function useCashMovement(sessionId: number) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: { tipo: "INGRESO" | "EGRESO"; monto: string; concepto: string }) =>
+    mutationFn: (body: { tipo: "INGRESO" | "EGRESO"; monto: string; concepto: string; categoria: string }) =>
       apiRequest(`sesiones-caja/${sessionId}/movimientos`, dataOf(movementSchema), { method: "POST", body }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: cashKeys.summary(sessionId) }),
   });
@@ -83,7 +95,10 @@ export function useCloseCash(sessionId: number) {
   return useMutation({
     mutationFn: (declared: string) =>
       apiRequest(`sesiones-caja/${sessionId}/cierre`, dataOf(closedSessionSchema), { method: "POST", body: { monto_cierre_declarado: declared } }),
-    onSuccess: () => queryClient.setQueryData(cashKeys.session, null),
+    onSuccess: () => {
+      queryClient.setQueryData(cashKeys.session, null);
+      void queryClient.invalidateQueries({ queryKey: cashKeys.history });
+    },
   });
 }
 
@@ -113,6 +128,7 @@ export function useChargeOrder(orderId: number, sessionId: number) {
       void queryClient.invalidateQueries({ queryKey: cashKeys.summary(sessionId) });
       void queryClient.invalidateQueries({ queryKey: cashKeys.receipts(sessionId) });
       void queryClient.invalidateQueries({ queryKey: ["pedidos"], exact: true });
+      void queryClient.invalidateQueries({ queryKey: ["pedidos", "admin"] });
     },
   });
 }

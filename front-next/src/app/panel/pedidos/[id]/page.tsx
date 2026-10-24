@@ -9,6 +9,12 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const me = await apiFetch<Me>("auth/yo");
   const canVoid = me.ok && me.data.permisos.includes("restaurante.pedidos.anular_item");
+  const user = me.ok
+    ? {
+        id: me.data.usuario.id,
+        esJefe: me.data.permisos.includes("panel.ver") || me.data.permisos.includes("restaurante.mesas.gestionar"),
+      }
+    : { id: 0, esJefe: true };
 
-  return <OrderView orderId={Number(id)} canVoid={canVoid} />;
+  return <OrderView orderId={Number(id)} canVoid={canVoid} user={user} />;
 }

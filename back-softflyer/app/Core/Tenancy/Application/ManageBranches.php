@@ -25,7 +25,7 @@ final class ManageBranches
         return Branch::orderByDesc('es_principal')->orderByDesc('es_activa')->orderBy('id')->get();
     }
 
-    /** @param array{nombre: string, direccion?: ?string, ubigeo_id?: ?int, codigo_establecimiento?: ?string} $data */
+    /** @param array{nombre: string, direccion?: ?string, ubigeo_id?: ?int, codigo_establecimiento?: ?string, latitud?: ?float, longitud?: ?float, radio_geocerca_metros?: ?int} $data */
     public function create(array $data): Branch
     {
         return DB::transaction(function () use ($data) {
@@ -43,6 +43,9 @@ final class ManageBranches
                 'codigo_establecimiento' => $code,
                 'es_principal' => false,
                 'es_activa' => true,
+                'latitud' => $data['latitud'] ?? null,
+                'longitud' => $data['longitud'] ?? null,
+                'radio_geocerca_metros' => $data['radio_geocerca_metros'] ?? null,
             ]);
 
             $this->refreshUsage();
@@ -74,7 +77,10 @@ final class ManageBranches
                 Branch::where('es_principal', true)->whereKeyNot($branch->id)->update(['es_principal' => false]);
             }
 
-            $branch->fill(array_intersect_key($data, array_flip(['nombre', 'direccion', 'ubigeo_id', 'codigo_establecimiento', 'es_activa'])));
+            $branch->fill(array_intersect_key($data, array_flip([
+                'nombre', 'direccion', 'ubigeo_id', 'codigo_establecimiento', 'es_activa',
+                'latitud', 'longitud', 'radio_geocerca_metros',
+            ])));
             if (($data['es_principal'] ?? false) === true) {
                 $branch->es_principal = true;
             }

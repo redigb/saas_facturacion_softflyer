@@ -11,6 +11,8 @@ export const menuSchema = z.object({
     z.object({
       id: z.number(),
       nombre: z.string(),
+      descripcion: z.string().nullable(),
+      imagen_url: z.string().nullable(),
       precio_venta: decimal,
       tipo: z.enum(["PLATO", "BEBIDA"]),
       categoria_id: z.number().nullable(),
@@ -41,6 +43,7 @@ const orderHeader = {
   mozo: z.object({ id: z.number(), nombre: z.string() }).nullable(),
   numero_comensales: z.number().nullable(),
   abierto_en: z.string(),
+  cerrado_en: z.string().nullable(),
   total: decimal,
 };
 
@@ -68,7 +71,13 @@ export const orderSchema = z.object({
   ),
 });
 
-export const orderSummarySchema = z.object({ ...orderHeader, platos: z.number(), pendientes: z.number(), listos: z.number() });
+export const orderSummarySchema = z.object({
+  ...orderHeader,
+  platos: z.number(),
+  pendientes: z.number(),
+  listos: z.number(),
+  detalles_resumen: z.array(z.object({ id: z.number(), nombre: z.string().nullable(), cantidad: z.string(), subtotal: decimal })),
+});
 
 export type Menu = z.infer<typeof menuSchema>;
 export type MenuProduct = Menu["productos"][number];

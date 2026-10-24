@@ -28,6 +28,7 @@ const PATHS = {
   lista: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   plato: "M3 18h18M4 18a8 8 0 0 1 16 0M12 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
   bebida: "M8 21h8M12 17v4M5 4h14l-2 9a4 4 0 0 1-4 3h-2a4 4 0 0 1-4-3L5 4Z",
+  ubicacion: "M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Zm-8 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
 } as const;
 
 export type IconName = keyof typeof PATHS;

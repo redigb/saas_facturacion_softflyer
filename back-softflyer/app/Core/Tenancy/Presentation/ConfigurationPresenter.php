@@ -38,6 +38,11 @@ final class ConfigurationPresenter
             'es_principal' => (bool) $branch->es_principal,
             'es_activa' => (bool) $branch->es_activa,
             'exonerado_amazonia' => (bool) $branch->exonerado_amazonia,
+            'geocerca' => $branch->latitud === null ? null : [
+                'latitud' => (float) $branch->latitud,
+                'longitud' => (float) $branch->longitud,
+                'radio_metros' => (int) $branch->radio_geocerca_metros,
+            ],
         ])->values()->all();
     }
 

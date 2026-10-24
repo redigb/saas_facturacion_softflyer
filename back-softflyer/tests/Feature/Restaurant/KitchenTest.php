@@ -7,6 +7,7 @@ use App\Modules\Restaurant\Infrastructure\Realtime\DishReady;
 use App\Modules\Restaurant\Infrastructure\Realtime\KitchenStatusUpdated;
 use App\Modules\Restaurant\Infrastructure\Realtime\OrderUpdated;
 use App\Modules\Restaurant\Infrastructure\Realtime\TicketSent;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\TestResponse;
 use Tests\DatabaseTestCase;
@@ -21,6 +22,8 @@ class KitchenTest extends DatabaseTestCase
 
     private string $cook;
 
+    private int $cookId;
+
     private int $order;
 
     /** @var array<string, int> detalle por plato */
@@ -31,6 +34,8 @@ class KitchenTest extends DatabaseTestCase
         parent::setUp();
         $this->buildRestaurant();
         $this->cook = $this->user('Cocinero', 'cocina@donjose.pe');
+        $this->cookId = $this->asTenant(fn () => (int) User::where('correo', 'cocina@donjose.pe')->value('id'));
+        $this->assignStations([$this->ids['cocina'], $this->ids['bar']], general: true);
 
         // Mesa M1: 2 lomos (cocina), 1 chicha (bar) y 1 pan (sin estación → general).
         $this->order = $this->open($this->ids['m1'])->json('data.id');
@@ -47,6 +52,7 @@ class KitchenTest extends DatabaseTestCase
         $kitchen = $this->board($this->ids['cocina'])->assertOk()->assertJsonCount(1, 'data');
         $ticket = $kitchen->json('data.0');
 
+        $this->assertFalse($ticket['es_agregado']);
         $this->assertSame('M1', $ticket['pedido']['mesa']);
         $this->assertSame('Mozo', $ticket['enviada_por']);
         $this->assertFalse($ticket['completa']);
@@ -57,6 +63,76 @@ class KitchenTest extends DatabaseTestCase
 
         $this->board($this->ids['bar'])->assertJsonCount(1, 'data')->assertJsonPath('data.0.detalles.0.nombre', 'Chicha morada');
         $this->board('general')->assertJsonCount(1, 'data')->assertJsonPath('data.0.detalles.0.nombre', 'Pan al ajo');
+    }
+
+    public function test_cook_only_sees_and_operates_assigned_stations(): void
+    {
+        $this->assignStations([$this->ids['cocina']], general: false);
+
+        $this->as($this->cook, 'GET', 'cocina/estaciones')
+            ->assertOk()
+            ->assertExactJson(['data' => [['id' => $this->ids['cocina'], 'nombre' => 'Cocina']]]);
+
+        $this->board($this->ids['cocina'])->assertOk();
+        $this->board($this->ids['bar'])->assertForbidden();
+        $this->board('general')->assertForbidden();
+        $this->state($this->cook, $this->items['chicha'], 'EN_PREPARACION')->assertForbidden();
+
+        $barTicket = $this->asTenant(fn () => (int) DB::table('comandas')->where('estacion_preparacion_id', $this->ids['bar'])->value('id'));
+        $this->as($this->cook, 'POST', "cocina/comandas/{$barTicket}/listo")->assertForbidden();
+        $this->as($this->cook, 'POST', "cocina/comandas/{$barTicket}/impresa")->assertForbidden();
+
+        // El administrador supervisa todas las estaciones aunque no tenga filas asignadas.
+        $this->as($this->admin, 'GET', "cocina/comandas?estacion_id={$this->ids['bar']}")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_admin_configures_kds_access_and_cook_cannot_change_it(): void
+    {
+        $this->assignStations([$this->ids['bar']], general: true)
+            ->assertJsonPath('data.usuario_id', $this->cookId)
+            ->assertJsonPath('data.estacion_ids', [$this->ids['bar']])
+            ->assertJsonPath('data.general', true);
+
+        $this->as($this->admin, 'GET', "cocina/accesos/{$this->cookId}")
+            ->assertOk()
+            ->assertJsonPath('data.estacion_ids', [$this->ids['bar']]);
+
+        $this->as($this->cook, 'PUT', "cocina/accesos/{$this->cookId}", ['estacion_ids' => [$this->ids['cocina']], 'general' => false])
+            ->assertForbidden();
+
+        $this->as($this->admin, 'PUT', "cocina/accesos/{$this->cookId}", ['estacion_ids' => [999999], 'general' => false])
+            ->assertStatus(422);
+
+        $waiterId = $this->asTenant(fn () => (int) User::where('correo', 'mozo@donjose.pe')->value('id'));
+        $this->as($this->admin, 'PUT', "cocina/accesos/{$waiterId}", ['estacion_ids' => [$this->ids['cocina']], 'general' => false])
+            ->assertStatus(422)
+            ->assertJsonPath('error.detalles.usuario.0', 'Esta persona necesita un rol de cocina para usar el KDS.');
+
+        $other = $this->provision('otro');
+        $this->forget();
+        $this->withToken($this->tokenFor($other, 'admin@otro.pe'))
+            ->getJson($this->tenantUrl('otro', "cocina/accesos/{$this->cookId}"))
+            ->assertNotFound();
+    }
+
+    public function test_a_later_send_is_marked_as_an_addition_even_for_a_new_station(): void
+    {
+        // Bar ya recibió una comanda inicial; su segundo envío queda marcado.
+        $this->send($this->order, [['producto_id' => $this->ids['chicha'], 'cantidad' => 1]]);
+        $bar = $this->board($this->ids['bar'])->assertJsonCount(2, 'data')->json('data');
+        $this->assertFalse($bar[0]['es_agregado']);
+        $this->assertTrue($bar[1]['es_agregado']);
+
+        // Abre otro pedido cuya primera tanda va solo a cocina. Cuando bar aparece
+        // por primera vez en un envío posterior, también debe decir "AGREGÓ".
+        $secondOrder = $this->open($this->ids['m2'])->json('data.id');
+        $this->send($secondOrder, [['producto_id' => $this->ids['lomo'], 'cantidad' => 1, 'modificador_ids' => [$this->ids['jugoso']]]]);
+        $this->send($secondOrder, [['producto_id' => $this->ids['chicha'], 'cantidad' => 1]]);
+
+        $newStationTicket = collect($this->board($this->ids['bar'])->json('data'))
+            ->firstWhere('pedido.id', $secondOrder);
+        $this->assertSame(1, $newStationTicket['numero']);
+        $this->assertTrue($newStationTicket['es_agregado']);
     }
 
     public function test_cook_advances_a_dish_and_its_waiter_is_told_it_is_ready(): void
@@ -144,6 +220,28 @@ class KitchenTest extends DatabaseTestCase
             ->assertNotFound();
     }
 
+    public function test_printing_marks_the_ticket_and_the_first_stamp_stays(): void
+    {
+        $ticket = $this->board($this->ids['cocina'])->json('data.0.id');
+
+        $first = $this->markPrinted($ticket)->assertOk()->json('data.impresa_en');
+        $this->assertNotNull($first);
+
+        // Reimprimir no mueve la marca original.
+        $this->assertSame($first, $this->markPrinted($ticket)->assertOk()->json('data.impresa_en'));
+    }
+
+    public function test_only_the_kitchen_or_the_admin_register_a_print(): void
+    {
+        $ticket = $this->board($this->ids['cocina'])->json('data.0.id');
+
+        $this->as($this->waiter, 'POST', "cocina/comandas/{$ticket}/impresa")->assertForbidden();
+
+        $this->as($this->admin, 'POST', "cocina/comandas/{$ticket}/impresa")
+            ->assertOk()
+            ->assertJsonPath('data.impresa_en', fn ($value) => $value !== null);
+    }
+
     private function board(int|string $station): TestResponse
     {
         return $this->as($this->cook, 'GET', "cocina/comandas?estacion_id={$station}");
@@ -152,5 +250,19 @@ class KitchenTest extends DatabaseTestCase
     private function state(string $token, int $item, string $state): TestResponse
     {
         return $this->as($token, 'PATCH', "cocina/detalles/{$item}", ['estado_cocina' => $state]);
+    }
+
+    private function markPrinted(int $ticket): TestResponse
+    {
+        return $this->as($this->cook, 'POST', "cocina/comandas/{$ticket}/impresa");
+    }
+
+    /** @param list<int> $stations */
+    private function assignStations(array $stations, bool $general): TestResponse
+    {
+        return $this->as($this->admin, 'PUT', "cocina/accesos/{$this->cookId}", [
+            'estacion_ids' => $stations,
+            'general' => $general,
+        ]);
     }
 }

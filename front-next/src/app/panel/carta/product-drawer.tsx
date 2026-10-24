@@ -5,9 +5,10 @@ import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
 import { usePermissions } from "@/app/panel/carta/menu-editor";
-import { errorMessage, useDeleteProduct, useSaveProduct } from "@/app/panel/carta/queries";
+import { errorMessage, useClearProductImage, useDeleteProduct, useSaveProduct, useSaveProductImage } from "@/app/panel/carta/queries";
 import { applyApiErrors, dangerButton, Drawer, Field, inputClass, primaryButton, secondaryButton } from "@/app/panel/carta/ui";
 import { useToast } from "@/app/panel/providers";
+import { compressImage, formatBytes, type CompressedImage } from "@/lib/compress-image";
 import { Icon } from "@/components/icons";
 import { CustomSelect } from "@/components/ui";
 import {
@@ -36,12 +37,19 @@ export function ProductDrawer({ open, product, defaultCategoryId, categories, st
   const toast = useToast();
   const save = useSaveProduct();
   const remove = useDeleteProduct();
+  const photoSave = useSaveProductImage();
+  const photoClear = useClearProductImage();
   const isNew = product === undefined;
 
   const [moreOptions, setMoreOptions] = useState(
-    !isNew && (product.tipo === "BEBIDA" || !!product.descripcion || product.estacion_preparacion_id !== null || product.modificador_grupo_ids.length > 0),
+    !isNew && (product.tipo === "BEBIDA" || !!product.descripcion || product.modificador_grupo_ids.length > 0),
   );
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Foto del plato (spec 023): comprimida en el dispositivo antes de subir.
+  const [imageFile, setImageFile] = useState<CompressedImage | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const form = useForm({
     resolver: zodResolver(productFormSchema),
@@ -64,6 +72,34 @@ export function ProductDrawer({ open, product, defaultCategoryId, categories, st
   const categoryStation = categories.find((category) => String(category.id) === categoryId)?.estacion_preparacion_id;
   const categoryStationName = stations.find((station) => station.id === categoryStation)?.nombre;
 
+  const currentPreview = imageFile?.preview ?? (removeImage || !product?.imagen_url ? null : product.imagen_url);
+
+  async function pickImage(event: React.ChangeEvent<HTMLInputElement>) {
+    const picked = event.target.files?.[0];
+    event.target.value = "";
+    if (!picked) return;
+
+    setImageError(null);
+    setProcessing(true);
+    try {
+      const compressed = await compressImage(picked);
+      if (imageFile) URL.revokeObjectURL(imageFile.preview);
+      setImageFile(compressed);
+      setRemoveImage(false);
+    } catch {
+      setImageError("No se pudo leer esa imagen. Prueba con otra foto.");
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  function clearSelection() {
+    if (imageFile) URL.revokeObjectURL(imageFile.preview);
+    setImageFile(null);
+    setImageError(null);
+    setRemoveImage(Boolean(product?.imagen_url));
+  }
+
   async function submit(values: ReturnType<typeof productFormSchema.parse>, addAnother: boolean) {
     try {
       const { data } = await save.mutateAsync({
@@ -79,11 +115,23 @@ export function ProductDrawer({ open, product, defaultCategoryId, categories, st
         },
       });
 
+      // Primero el plato, después la foto: si la foto falla, el plato queda guardado igual.
+      try {
+        if (imageFile) {
+          await photoSave.mutateAsync({ id: data.id, file: imageFile.file });
+        } else if (removeImage && product?.imagen_url) {
+          await photoClear.mutateAsync(data.id);
+        }
+      } catch (error) {
+        toast({ tone: "error", message: `Se guardó el plato, pero la foto falló: ${errorMessage(error)}` });
+      }
+
       toast({ tone: "ok", message: isNew ? `${data.nombre} se agregó a la carta.` : "Cambios guardados." });
 
       if (addAnother) {
         // Se queda en la misma categoría y tipo: cargar varios platos seguidos es rápido.
         reset({ ...values, nombre: "", precio_venta: "", descripcion: "", modificador_grupo_ids: [] });
+        clearSelection();
         setFocus("nombre");
       } else {
         onClose();
@@ -106,7 +154,7 @@ export function ProductDrawer({ open, product, defaultCategoryId, categories, st
     }
   }
 
-  const busy = formState.isSubmitting;
+  const busy = formState.isSubmitting || photoSave.isPending || photoClear.isPending;
 
   return (
     <Drawer
@@ -146,6 +194,46 @@ export function ProductDrawer({ open, product, defaultCategoryId, categories, st
       }
     >
       <form id="producto-form" noValidate onSubmit={handleSubmit((values) => submit(values, false))} className="space-y-5">
+        {/* Foto del plato (spec 023): se comprime en el dispositivo, estilo WhatsApp. */}
+        <div>
+          <span className="mb-1.5 block text-sm font-bold text-tinta">Foto del plato</span>
+          <div className="flex items-start gap-4">
+            {currentPreview ? (
+              // eslint-disable-next-line @next/next/no-img-element -- preview local ya comprimido
+              <img src={currentPreview} alt="Foto del plato" className="h-24 w-36 rounded-2xl border border-slate-200 object-cover" />
+            ) : (
+              <div className="flex h-24 w-36 items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 text-slate-300">
+                <Icon name="plato" className="h-8 w-8" />
+              </div>
+            )}
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className={`${secondaryButton} cursor-pointer`}>
+                  {processing ? "Comprimiendo…" : currentPreview ? "Cambiar foto" : "Elegir foto"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={busy || processing}
+                    onChange={(event) => void pickImage(event)}
+                  />
+                </label>
+                {currentPreview && (
+                  <button type="button" onClick={clearSelection} disabled={busy || processing} className={dangerButton}>
+                    Quitar
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">
+                {imageFile
+                  ? `Compresión lista: ${formatBytes(imageFile.originalBytes)} → ${formatBytes(imageFile.compressedBytes)} · ${imageFile.width}×${imageFile.height} px`
+                  : "JPG, PNG o WebP. Se comprime en tu dispositivo antes de subir (máx. 1600 px)."}
+              </p>
+              {imageError && <p className="text-xs font-semibold text-red-600">{imageError}</p>}
+            </div>
+          </div>
+        </div>
+
         <Field label="Nombre" error={errors.nombre?.message}>
           {(id, describedBy) => (
             <input
@@ -199,6 +287,29 @@ export function ProductDrawer({ open, product, defaultCategoryId, categories, st
           )}
         </Field>
 
+        {/* La estación va a la vista: es lo primero que se define al crear un plato (spec 020). */}
+        <Field
+          label="¿A qué estación va?"
+          hint={categoryStationName ? `Si no eliges, va a ${categoryStationName} (la de su categoría).` : "Si no eliges, usa la de su categoría."}
+        >
+          {(id, describedBy) => (
+            <CustomSelect
+              id={id}
+              aria-describedby={describedBy}
+              value={estacionPreparacionId ?? ""}
+              onChange={(val) => setValue("estacion_preparacion_id", val, { shouldDirty: true, shouldValidate: true })}
+              options={[
+                { value: "", label: "La de su categoría" },
+                ...stations.map((station) => ({
+                  value: String(station.id),
+                  label: station.nombre,
+                  icon: "cocina" as const,
+                })),
+              ]}
+            />
+          )}
+        </Field>
+
         <div className="pt-1">
           <button
             type="button"
@@ -207,7 +318,7 @@ export function ProductDrawer({ open, product, defaultCategoryId, categories, st
             className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-bold text-azul transition-colors hover:bg-azul/10"
           >
             <Icon name="abajo" className={`h-4 w-4 transition-transform duration-200 ${moreOptions ? "rotate-180" : ""}`} />
-            {moreOptions ? "Menos opciones" : "Más opciones (tipo, cocina, modificadores)"}
+            {moreOptions ? "Menos opciones" : "Más opciones (tipo, descripción, modificadores)"}
           </button>
         </div>
 
@@ -230,28 +341,6 @@ export function ProductDrawer({ open, product, defaultCategoryId, categories, st
             <Field label="Descripción" error={errors.descripcion?.message} hint="Opcional. Ayuda al mozo a explicar el plato.">
               {(id, describedBy) => (
                 <textarea id={id} rows={2} {...register("descripcion")} aria-describedby={describedBy} className={inputClass} />
-              )}
-            </Field>
-
-            <Field
-              label="¿A qué estación va?"
-              hint={categoryStationName ? `Si no eliges, va a ${categoryStationName} (la de su categoría).` : "Si no eliges, usa la de su categoría."}
-            >
-              {(id, describedBy) => (
-                <CustomSelect
-                  id={id}
-                  aria-describedby={describedBy}
-                  value={estacionPreparacionId ?? ""}
-                  onChange={(val) => setValue("estacion_preparacion_id", val, { shouldDirty: true, shouldValidate: true })}
-                  options={[
-                    { value: "", label: "La de su categoría" },
-                    ...stations.map((station) => ({
-                      value: String(station.id),
-                      label: station.nombre,
-                      icon: "cocina" as const,
-                    })),
-                  ]}
-                />
               )}
             </Field>
 

@@ -15,6 +15,19 @@ class Product extends BaseModel
 
     protected $table = 'productos';
 
+    protected static function booted(): void
+    {
+        // Compatibilidad: los flujos anteriores solo marcaban controla_stock.
+        static::saving(function (Product $product): void {
+            if (! $product->controla_stock) {
+                return;
+            }
+
+            $product->categoria_inventario ??= $product->tipo === 'BEBIDA' ? 'BEBIDA' : 'ALIMENTO';
+            $product->naturaleza_inventario ??= 'CONSUMIBLE';
+        });
+    }
+
     protected function casts(): array
     {
         return [

@@ -63,10 +63,14 @@ class ConfigurationController
             'direccion' => ['sometimes', 'nullable', 'string', 'max:250'],
             'ubigeo_id' => ['sometimes', 'nullable', 'integer', Rule::exists('ubigeos', 'id')],
             'codigo_establecimiento' => ['sometimes', 'nullable', 'digits:4'],
+            'latitud' => ['sometimes', 'nullable', 'numeric', 'between:-90,90', 'required_with:longitud,radio_geocerca_metros'],
+            'longitud' => ['sometimes', 'nullable', 'numeric', 'between:-180,180', 'required_with:latitud,radio_geocerca_metros'],
+            'radio_geocerca_metros' => ['sometimes', 'nullable', 'integer', 'between:20,500', 'required_with:latitud,longitud'],
         ], [
             'nombre.required' => 'Ponle un nombre a la sucursal.',
             'codigo_establecimiento.digits' => 'El código de establecimiento tiene 4 dígitos.',
             'ubigeo_id.exists' => 'Elige un distrito de la lista.',
+            'radio_geocerca_metros.between' => 'El radio debe estar entre 20 y 500 metros.',
         ]);
 
         if (($data['codigo_establecimiento'] ?? null) === null) {
@@ -85,11 +89,15 @@ class ConfigurationController
             'codigo_establecimiento' => ['sometimes', 'digits:4'],
             'es_activa' => ['sometimes', 'boolean'],
             'es_principal' => ['sometimes', 'accepted'],
+            'latitud' => ['sometimes', 'nullable', 'numeric', 'between:-90,90', 'required_with:longitud,radio_geocerca_metros'],
+            'longitud' => ['sometimes', 'nullable', 'numeric', 'between:-180,180', 'required_with:latitud,radio_geocerca_metros'],
+            'radio_geocerca_metros' => ['sometimes', 'nullable', 'integer', 'between:20,500', 'required_with:latitud,longitud'],
         ], [
             'nombre.min' => 'Ponle un nombre a la sucursal.',
             'codigo_establecimiento.digits' => 'El código de establecimiento tiene 4 dígitos.',
             'ubigeo_id.exists' => 'Elige un distrito de la lista.',
             'es_principal.accepted' => 'Para cambiar la principal, marca otra sucursal como principal.',
+            'radio_geocerca_metros.between' => 'El radio debe estar entre 20 y 500 metros.',
         ]);
 
         if (isset($data['es_principal'])) {
