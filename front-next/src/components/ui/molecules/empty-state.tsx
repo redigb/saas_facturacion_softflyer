@@ -24,13 +24,13 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className={`rounded-3xl border border-dashed border-slate-200 bg-white/70 px-6 py-14 text-center backdrop-blur-xs ${className}`}
+      className={`rounded-3xl border border-dashed border-border bg-card/70 px-6 py-14 text-center backdrop-blur-xs ${className}`}
     >
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground/70">
         <Icon name={icon} className="h-7 w-7" />
       </div>
-      <p className="mt-4 text-lg font-bold text-tinta">{title}</p>
-      <p className="mt-1 text-sm text-slate-500">{description}</p>
+      <p className="mt-4 text-lg font-bold text-foreground">{title}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       {actionLabel && onAction ? (
         <div className="mt-5">
           <Button onClick={onAction} variant="primary">

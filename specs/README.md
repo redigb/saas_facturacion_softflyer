@@ -54,6 +54,7 @@ Para crear una nueva, copia [`_plantilla/`](_plantilla/) con el siguiente númer
 | [017a-configuracion-fiscal](017a-configuracion-fiscal/spec.md) | H3 | ✅ | ✅ | Cerrada (2026-10-19) |
 | [017b-emision-greenter](017b-emision-greenter/spec.md) | H3 | 🟡 | ⚪ | En curso: boleta y factura aceptadas en beta, reintentos automáticos. Pendiente de producción: consulta de CDR y 1033 (solo existen allí) |
 | [017c-estado-operacion](017c-estado-operacion/spec.md) | H3 | ⚪ | ⚪ | Pendiente |
+| [018-facturacion-suscripcion](018-facturacion-suscripcion/spec.md) | Backoffice | ⚪ | ⚪ | Diseño: Softflyer factura a sus clientes con el mismo motor |
 
 ## Hoja de ruta: configuración general y preview
 
@@ -81,3 +82,20 @@ Orden: 011 → 012 → 014 → 015 → 016, con 013 intercalable. La 017 queda a
 
 - **Varios RUC por cliente (multi-RUC).** Hoy un cliente (inquilino) tiene una sola empresa. La salida más barata es un cliente por RUC y, encima, un grupo o cuenta que los agrupe en el backoffice. Decidir con un caso real. La base ya ayuda: las series se piden únicas por RUC, el IGV se resuelve por sucursal y todo lo fiscal cuelga de `empresas`, no del cliente.
 - **Rubro por sucursal** (farmacia, ferretería, hotel…) y los módulos de cada rubro. Sin un cliente real de otro rubro, no hay qué diseñar.
+
+## Backoffice: hoja de cierre
+
+- [x] Ciclo de vida: crear, activar plan, extender prueba, suspender, reactivar.
+- [x] Fiscal por cliente, alertas y "Probar credenciales" (spec 017b).
+- [x] Editar los datos de la empresa (`PATCH plataforma/clientes/{slug}`): el RUC solo cambia sin comprobantes reales y retira la homologación.
+- [x] Cancelar cliente (`POST plataforma/clientes/{slug}/cancelar`): pierde el acceso, se cierran sus sesiones, los datos se conservan. Se confirma escribiendo el subdominio.
+- [ ] Soporte de usuarios del cliente: resetear contraseña y desactivar usuarios.
+- [ ] Salud técnica: cola detenida y trabajos fallidos.
+- [ ] Cobro de suscripciones: pagos, historial y recordatorio de renovación (requiere spec propia).
+- [ ] Comprobantes de todos los clientes en una vista; equipo y roles del backoffice; filtros, historial y correo de alertas.
+
+## Backoffice: cara propia (shadcn)
+
+- El backoffice usa su propio tema (`front-next/src/styles/backoffice-theme.css`, `[data-theme="backoffice"]`, tema Discord del starter, oscuro por defecto, fuente Google Sans Flex local) y el layout de sidebar de [next-shadcn-dashboard-starter](https://github.com/Kiranism/next-shadcn-dashboard-starter). `<ThemeScope>` pone el tema en `<html>` porque los portales de Radix viven fuera del layout.
+- Los componentes compartidos (`components/ui`) leen tokens de shadcn (`bg-primary`, `text-foreground`, `border-border`…); los valores por defecto son los de la marca, así que el restaurante se ve igual. Un módulo nuevo solo define su `[data-theme]`.
+- Átomos: `components/ui`. Piezas del backoffice: `components/backoffice/{molecules,organisms,templates}`.

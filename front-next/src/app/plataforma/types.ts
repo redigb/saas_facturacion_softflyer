@@ -8,6 +8,7 @@ export type Client = {
   modo: "PRUEBA" | "PAGO";
   ruc: string | null;
   razon_social: string | null;
+  direccion_fiscal: string | null;
   plan: string | null;
   suscripcion: { estado: string; fecha_vencimiento: string; dias_restantes: number } | null;
   prueba: { vence_en: string; dias_restantes: number; vencida: boolean } | null;

@@ -1,32 +1,33 @@
 import type { Client } from "@/app/plataforma/types";
+import { Badge } from "@/components/ui/badge";
 
 /** Estado comercial de un cliente, en una sola etiqueta. */
 export function ClientStatus({ client }: { client: Client }) {
-  const { label, className } = statusOf(client);
+  const { label, variant } = statusOf(client);
 
-  return <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap ${className}`}>{label}</span>;
+  return <Badge variant={variant} className="whitespace-nowrap font-bold px-2.5 py-0.5">{label}</Badge>;
 }
 
-export function statusOf(client: Client): { label: string; className: string; key: string } {
+export function statusOf(client: Client): { label: string; variant: "destructive" | "neutral" | "warning" | "info" | "success"; key: string } {
   if (client.estado === "SUSPENDIDO") {
-    return { key: "suspendidos", label: "Suspendido", className: "bg-red-100 text-red-700" };
+    return { key: "suspendidos", label: "Suspendido", variant: "destructive" };
   }
   if (client.estado === "CANCELADO") {
-    return { key: "cancelados", label: "Cancelado", className: "bg-slate-200 text-slate-600" };
+    return { key: "cancelados", label: "Cancelado", variant: "neutral" };
   }
   if (client.prueba?.vencida) {
-    return { key: "vencidas", label: "Prueba vencida", className: "bg-amarillo/40 text-tinta" };
+    return { key: "vencidas", label: "Prueba vencida", variant: "warning" };
   }
   if (client.modo === "PRUEBA") {
     const days = client.prueba?.dias_restantes ?? 0;
     return {
       key: "prueba",
       label: days === 0 ? "Prueba · vence hoy" : `Prueba · ${days} d`,
-      className: days <= 2 ? "bg-amarillo text-tinta" : "bg-celeste/15 text-azul",
+      variant: days <= 2 ? "warning" : "info",
     };
   }
 
-  return { key: "pago", label: "De pago", className: "bg-emerald-100 text-emerald-700" };
+  return { key: "pago", label: "De pago", variant: "success" };
 }
 
 export function formatDate(iso: string): string {
@@ -50,6 +51,8 @@ export const ACTION_LABELS: Record<string, string> = {
   PLAN_ACTIVADO: "Plan activado",
   PRUEBA_EXTENDIDA: "Prueba extendida",
   CLIENTE_SUSPENDIDO: "Cliente suspendido",
+  CLIENTE_EDITADO: "Datos corregidos",
+  CLIENTE_CANCELADO: "Cliente cancelado",
   CLIENTE_REACTIVADO: "Cliente reactivado",
   ENLACE_REENVIADO: "Enlace reenviado",
   HOMOLOGACION_ACTUALIZADA: "Homologación actualizada",
@@ -61,8 +64,8 @@ export const ACTION_LABELS: Record<string, string> = {
   AMAZONIA_LOCAL_ACTUALIZADA: "Amazonía del local actualizada",
 };
 
-export const cardClass = "rounded-2xl border border-slate-200 bg-white p-6";
+export const cardClass = "rounded-xl border bg-card p-6 text-card-foreground shadow-xs";
 export const inputClass =
-  "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-azul focus:ring-4 focus:ring-celeste/25";
+  "w-full rounded-lg border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition focus:border-ring focus:ring-4 focus:ring-ring/20";
 export const primaryButton =
-  "inline-flex items-center justify-center rounded-xl bg-azul px-4 py-2.5 text-sm font-bold text-white transition hover:bg-azul-oscuro disabled:opacity-60";
+  "inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover active:scale-[0.98] disabled:opacity-60 shadow-xs";

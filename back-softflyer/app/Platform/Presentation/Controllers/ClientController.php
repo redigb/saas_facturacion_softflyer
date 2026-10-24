@@ -153,6 +153,31 @@ class ClientController
         return $this->ok();
     }
 
+    public function update(string $slug, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ruc' => ['sometimes', 'digits:11', function (string $attribute, mixed $value, Closure $fail) {
+                if (! Ruc::isValid($value)) {
+                    $fail('El RUC no es válido.');
+                }
+            }],
+            'razon_social' => ['sometimes', 'string', 'max:255'],
+            'nombre_comercial' => ['sometimes', 'string', 'max:120'],
+            'direccion_fiscal' => ['sometimes', 'nullable', 'string', 'max:255'],
+        ], ['ruc.digits' => 'El RUC tiene 11 dígitos.']);
+        $this->manage->updateData($this->client($slug), $data, $request->user());
+
+        return $this->ok();
+    }
+
+    public function cancel(string $slug, Request $request): JsonResponse
+    {
+        $data = $request->validate(['motivo' => ['required', 'string', 'max:255']], ['motivo.required' => 'Indica el motivo de la baja.']);
+        $this->manage->cancel($this->client($slug), $data['motivo'], $request->user());
+
+        return $this->ok();
+    }
+
     public function setBranchTax(string $slug, int $branch, Request $request): JsonResponse
     {
         $data = $request->validate([

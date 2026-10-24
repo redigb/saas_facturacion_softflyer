@@ -67,6 +67,34 @@ export async function suspendClient(slug: string, _prev: FormState, formData: Fo
   return clientAction(slug, "suspender", { motivo: formData.get("motivo") }, "Cliente suspendido.");
 }
 
+/** Corrige los datos de la empresa; el RUC solo se acepta mientras no haya comprobantes reales. */
+export async function updateClientData(slug: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  const body = JSON.stringify({
+    ruc: formData.get("ruc"),
+    razon_social: formData.get("razon_social"),
+    nombre_comercial: formData.get("nombre_comercial"),
+    direccion_fiscal: String(formData.get("direccion_fiscal") ?? "").trim() || null,
+  });
+  const result = await apiFetch(`plataforma/clientes/${slug}`, { method: "PATCH", body });
+
+  if (!result.ok) {
+    return { mensaje: result.error.mensaje, errores: result.error.detalles ?? undefined };
+  }
+
+  revalidatePath("/plataforma", "layout");
+
+  return { ok: true, mensaje: "Datos guardados." };
+}
+
+/** Baja definitiva: se pide escribir el subdominio para evitar un clic por error. */
+export async function cancelClient(slug: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  if (String(formData.get("confirmacion") ?? "").trim() !== slug) {
+    return { mensaje: `Escribe «${slug}» para confirmar la baja.` };
+  }
+
+  return clientAction(slug, "cancelar", { motivo: formData.get("motivo") }, "Cliente cancelado.");
+}
+
 export async function reactivateClient(slug: string): Promise<FormState> {
   return clientAction(slug, "reactivar", {}, "Cliente reactivado.");
 }

@@ -21,7 +21,7 @@ export function SearchInput({
     <div className={`relative ${className}`}>
       <Icon
         name="buscar"
-        className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-slate-400"
+        className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-muted-foreground/70"
       />
       <input
         type="search"
@@ -29,14 +29,14 @@ export function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className="h-12 w-full rounded-2xl border border-slate-200 bg-white pr-11 pl-12 text-[15px] text-tinta transition-all placeholder:text-slate-400 focus:border-azul focus:outline-none focus:ring-4 focus:ring-azul/10"
+        className="h-12 w-full rounded-2xl border border-border bg-card pr-11 pl-12 text-[15px] text-foreground transition-all placeholder:text-muted-foreground/70 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
       />
       {value ? (
         <button
           type="button"
           onClick={() => onChange("")}
           aria-label="Limpiar búsqueda"
-          className="absolute top-1/2 right-3 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          className="absolute top-1/2 right-3 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground/70"
         >
           <Icon name="cerrar" className="h-4 w-4" />
         </button>

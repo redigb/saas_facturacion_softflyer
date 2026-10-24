@@ -2,9 +2,21 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Search, ArrowUpRight, Building2, User } from "lucide-react";
 
 import type { Client } from "@/app/plataforma/types";
 import { ClientStatus, formatDate, statusOf } from "@/app/plataforma/ui";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 const FILTERS = [
   { key: "todos", label: "Todos" },
@@ -39,76 +51,124 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
   });
 
   return (
-    <div className="mt-8 rounded-2xl border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar clientes">
-          {FILTERS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              role="tab"
-              aria-selected={filter === item.key}
-              onClick={() => setFilter(item.key)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
-                filter === item.key ? "bg-azul text-white" : "bg-niebla text-slate-600 hover:text-azul"
-              }`}
-            >
-              {item.label} <span className="opacity-70">{counts[item.key] ?? 0}</span>
-            </button>
-          ))}
+    <Card className="mt-8 overflow-hidden border-border shadow-sm">
+      {/* Controls Bar */}
+      <div className="flex flex-col gap-4 border-b border-border/60 bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filtrar clientes">
+          {FILTERS.map((item) => {
+            const isSelected = filter === item.key;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
+                onClick={() => setFilter(item.key)}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                  isSelected
+                    ? "bg-primary text-primary-foreground shadow-2xs"
+                    : "bg-muted/80 text-foreground/70 hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <span>{item.label}</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                    isSelected ? "bg-card text-white" : "bg-card text-muted-foreground"
+                  }`}
+                >
+                  {counts[item.key] ?? 0}
+                </span>
+              </button>
+            );
+          })}
         </div>
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nombre, RUC o correo…"
-          aria-label="Buscar clientes"
-          className="ml-auto w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm outline-none focus:border-azul focus:ring-4 focus:ring-celeste/25 sm:w-72"
-        />
+
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, RUC o email…"
+            aria-label="Buscar clientes"
+            className="pl-9 text-xs"
+          />
+        </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] text-left text-sm">
-          <thead className="bg-niebla text-xs font-bold tracking-wide text-slate-500 uppercase">
-            <tr>
-              <th className="px-4 py-3">Restaurante</th>
-              <th className="px-4 py-3">RUC</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Plan · vence</th>
-              <th className="px-4 py-3">Contacto</th>
-              <th className="px-4 py-3 text-right">Usuarios</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {visible.map((client) => (
-              <tr key={client.id} className="hover:bg-niebla/60">
-                <td className="px-4 py-3">
-                  <Link href={`/plataforma/clientes/${client.slug}`} className="font-bold text-tinta hover:text-azul">
-                    {client.nombre}
-                  </Link>
-                  <p className="text-xs text-slate-500">
-                    {client.slug} · {client.origen === "PRUEBA_WEB" ? "Prueba web" : "Alta manual"}
+      {/* Modern Table */}
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-[30%]">Restaurante</TableHead>
+            <TableHead>RUC</TableHead>
+            <TableHead>Estado</TableHead>
+            <TableHead>Plan / Suscripción</TableHead>
+            <TableHead>Contacto</TableHead>
+            <TableHead className="text-right">Usuarios</TableHead>
+            <TableHead className="w-[70px]"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {visible.map((client) => (
+            <TableRow key={client.id} className="group">
+              <TableCell className="font-medium">
+                <Link
+                  href={`/plataforma/clientes/${client.slug}`}
+                  className="font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5"
+                >
+                  <Building2 className="h-4 w-4 text-muted-foreground/70 group-hover:text-primary shrink-0" />
+                  <span className="truncate">{client.nombre}</span>
+                </Link>
+                <p className="mt-0.5 text-xs text-muted-foreground/70 pl-5.5">
+                  <span className="font-mono">{client.slug}</span> ·{" "}
+                  {client.origen === "PRUEBA_WEB" ? "Prueba web" : "Alta directa"}
+                </p>
+              </TableCell>
+              <TableCell>
+                <span className="font-mono text-xs font-semibold text-foreground/70 bg-muted px-2 py-0.5 rounded-md">
+                  {client.ruc ?? "—"}
+                </span>
+              </TableCell>
+              <TableCell>
+                <ClientStatus client={client} />
+              </TableCell>
+              <TableCell>
+                <div className="text-sm font-semibold text-foreground/70">{client.plan ?? "—"}</div>
+                {client.suscripcion && (
+                  <p className="text-xs text-muted-foreground/70">
+                    Vence {formatDate(client.suscripcion.fecha_vencimiento)}
                   </p>
-                </td>
-                <td className="px-4 py-3 font-mono text-xs text-slate-600">{client.ruc ?? "—"}</td>
-                <td className="px-4 py-3">
-                  <ClientStatus client={client} />
-                </td>
-                <td className="px-4 py-3 text-slate-600">
-                  {client.plan ?? "—"}
-                  {client.suscripcion && <p className="text-xs text-slate-500">{formatDate(client.suscripcion.fecha_vencimiento)}</p>}
-                </td>
-                <td className="px-4 py-3 text-slate-600">
-                  {client.contacto.nombre}
-                  <p className="text-xs text-slate-500">{client.contacto.correo}</p>
-                </td>
-                <td className="px-4 py-3 text-right font-semibold text-tinta">{client.usuarios}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {visible.length === 0 && <p className="p-8 text-center text-sm text-slate-500">No hay clientes con ese filtro.</p>}
-      </div>
-    </div>
+                )}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
+                  <User className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
+                  <span>{client.contacto.nombre}</span>
+                </div>
+                <p className="text-xs text-muted-foreground/70 pl-5">{client.contacto.correo}</p>
+              </TableCell>
+              <TableCell className="text-right font-extrabold text-foreground tabular-nums">
+                {client.usuarios}
+              </TableCell>
+              <TableCell className="text-right">
+                <Button asChild size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground/70 group-hover:text-primary">
+                  <Link href={`/plataforma/clientes/${client.slug}`} title="Ver cliente">
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      {visible.length === 0 && (
+        <div className="p-12 text-center text-sm text-muted-foreground">
+          <p className="font-semibold text-foreground">No se encontraron clientes</p>
+          <p className="mt-1 text-xs text-muted-foreground/70">Intenta con otro término de búsqueda o filtro.</p>
+        </div>
+      )}
+    </Card>
   );
 }

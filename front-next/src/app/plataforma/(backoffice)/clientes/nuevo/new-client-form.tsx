@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { CheckCircle2, UserPlus, ArrowRight } from "lucide-react";
 
 import { createClient } from "@/app/plataforma/actions";
 import type { Plan } from "@/app/plataforma/types";
-import { cardClass, inputClass, primaryButton } from "@/app/plataforma/ui";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { isValidRuc, toSlug } from "@/lib/ruc";
 
 export function NewClientForm({ plans, rootDomain }: { plans: Plan[]; rootDomain: string }) {
@@ -20,105 +23,201 @@ export function NewClientForm({ plans, rootDomain }: { plans: Plan[]; rootDomain
     const created = state.resultado;
 
     return (
-      <section className={`${cardClass} mt-8 max-w-2xl border-emerald-200`}>
-        <h2 className="text-xl font-bold text-emerald-700">Cliente creado</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Comparte estos datos con el cliente por un canal seguro. <strong>La contraseña no se volverá a mostrar</strong>;
-          pídele que la cambie al ingresar.
-        </p>
-        <dl className="mt-5 space-y-3 rounded-xl bg-niebla p-4 text-sm">
-          <Row label="Dirección" value={`http://${created.slug}.${rootDomain}/login`} />
-          <Row label="Correo" value={created.correo} />
-          <Row label="Contraseña temporal" value={created.contrasena_temporal} mono />
-        </dl>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link href={`/plataforma/clientes/${created.slug}`} className={primaryButton}>Ver ficha del cliente</Link>
-          <Link href="/plataforma/clientes" className="inline-flex items-center rounded-xl px-4 py-2.5 text-sm font-bold text-azul hover:bg-niebla">
-            Volver a clientes
-          </Link>
-        </div>
-      </section>
+      <Card className="mt-6 max-w-2xl border-emerald-500/30 bg-card shadow-sm">
+        <CardHeader>
+          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="h-6 w-6" />
+            <CardTitle className="text-xl text-emerald-700 dark:text-emerald-400">Cliente Creado Exitosamente</CardTitle>
+          </div>
+          <CardDescription className="text-muted-foreground">
+            Comparte estos datos con el cliente por un canal seguro.{" "}
+            <strong className="text-foreground">La contraseña temporal no se volverá a mostrar</strong>;
+            recuérdale cambiarla al iniciar sesión.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <dl className="space-y-3 rounded-xl border border-border bg-muted/40 p-4 text-sm">
+            <Row label="Dirección web" value={`http://${created.slug}.${rootDomain}/login`} />
+            <Row label="Correo de acceso" value={created.correo} />
+            <Row label="Contraseña temporal" value={created.contrasena_temporal} mono />
+          </dl>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button asChild className="gap-2">
+              <Link href={`/plataforma/clientes/${created.slug}`}>
+                <span>Ver ficha del cliente</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/plataforma/clientes">Volver a clientes</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <form action={action} className={`${cardClass} mt-8 max-w-3xl space-y-5`}>
-      {state.mensaje && !state.errores && (
-        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{state.mensaje}</div>
-      )}
+    <Card className="mt-6 max-w-3xl border-border bg-card shadow-sm">
+      <CardHeader>
+        <div className="flex items-center gap-2 text-primary">
+          <UserPlus className="h-5 w-5" />
+          <CardTitle>Datos del Nuevo Cliente</CardTitle>
+        </div>
+        <CardDescription>
+          Completa los datos fiscales, subdominio y primer usuario administrador del restaurante.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form action={action} className="space-y-6">
+          {state.mensaje && !state.errores && (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400"
+            >
+              {state.mensaje}
+            </div>
+          )}
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="RUC" error={error("ruc") ?? (ruc.length === 11 && !isValidRuc(ruc) ? "El RUC no es válido." : undefined)}>
-          <input name="ruc" required inputMode="numeric" maxLength={11} value={ruc} onChange={(e) => setRuc(e.target.value.replace(/\D/g, ""))} className={`${inputClass} font-mono`} />
-        </Field>
-        <Field label="Razón social" error={error("razon_social")}>
-          <input name="razon_social" required defaultValue={values.razon_social} className={inputClass} />
-        </Field>
-        <Field label="Nombre del restaurante" error={error("nombre_comercial")}>
-          <input
-            name="nombre_comercial"
-            required
-            defaultValue={values.nombre_comercial}
-            onChange={(e) => !slugEdited && setSlug(toSlug(e.target.value))}
-            className={inputClass}
-          />
-        </Field>
-        <Field label={`Dirección (.${rootDomain})`} error={error("slug")}>
-          <input
-            name="slug"
-            required
-            value={slug}
-            onChange={(e) => {
-              setSlugEdited(true);
-              setSlug(toSlug(e.target.value));
-            }}
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Nombre del administrador" error={error("nombre_contacto")}>
-          <input name="nombre_contacto" required defaultValue={values.nombre_contacto} className={inputClass} />
-        </Field>
-        <Field label="Correo del administrador" error={error("correo")}>
-          <input name="correo" type="email" required defaultValue={values.correo} className={inputClass} />
-        </Field>
-        <Field label="Plan" error={error("plan")}>
-          <select name="plan" required defaultValue={values.plan} className={inputClass}>
-            {plans.map((plan) => (
-              <option key={plan.codigo} value={plan.codigo}>{plan.nombre}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Periodo pagado" error={error("meses")}>
-          <select name="meses" defaultValue="1" className={inputClass}>
-            {[1, 3, 6, 12].map((m) => (
-              <option key={m} value={m}>{m} {m === 1 ? "mes" : "meses"}</option>
-            ))}
-          </select>
-        </Field>
-      </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              label="RUC"
+              error={error("ruc") ?? (ruc.length === 11 && !isValidRuc(ruc) ? "El RUC no es válido." : undefined)}
+            >
+              <Input
+                name="ruc"
+                required
+                inputMode="numeric"
+                maxLength={11}
+                value={ruc}
+                onChange={(e) => setRuc(e.target.value.replace(/\D/g, ""))}
+                placeholder="10... o 20..."
+                className="font-mono text-sm"
+                hasError={Boolean(error("ruc"))}
+              />
+            </Field>
 
-      <button type="submit" disabled={pending} className={`${primaryButton} py-3`}>
-        {pending ? "Creando…" : "Crear cliente"}
-      </button>
-    </form>
+            <Field label="Razón social" error={error("razon_social")}>
+              <Input
+                name="razon_social"
+                required
+                defaultValue={values.razon_social}
+                placeholder="Ej. Inversiones Gastronómicas S.A.C."
+                className="text-sm"
+                hasError={Boolean(error("razon_social"))}
+              />
+            </Field>
+
+            <Field label="Nombre comercial del restaurante" error={error("nombre_comercial")}>
+              <Input
+                name="nombre_comercial"
+                required
+                defaultValue={values.nombre_comercial}
+                onChange={(e) => !slugEdited && setSlug(toSlug(e.target.value))}
+                placeholder="Ej. El Buen Sabor"
+                className="text-sm"
+                hasError={Boolean(error("nombre_comercial"))}
+              />
+            </Field>
+
+            <Field label={`Dirección web (.${rootDomain})`} error={error("slug")}>
+              <div className="flex items-center gap-2">
+                <Input
+                  name="slug"
+                  required
+                  value={slug}
+                  onChange={(e) => {
+                    setSlugEdited(true);
+                    setSlug(toSlug(e.target.value));
+                  }}
+                  placeholder="elbuensabor"
+                  className="font-mono text-sm"
+                  hasError={Boolean(error("slug"))}
+                />
+              </div>
+            </Field>
+
+            <Field label="Nombre del administrador" error={error("nombre_contacto")}>
+              <Input
+                name="nombre_contacto"
+                required
+                defaultValue={values.nombre_contacto}
+                placeholder="Ej. Carlos Mendoza"
+                className="text-sm"
+                hasError={Boolean(error("nombre_contacto"))}
+              />
+            </Field>
+
+            <Field label="Correo del administrador" error={error("correo")}>
+              <Input
+                name="correo"
+                type="email"
+                required
+                defaultValue={values.correo}
+                placeholder="carlos@restaurante.pe"
+                className="text-sm"
+                hasError={Boolean(error("correo"))}
+              />
+            </Field>
+
+            <Field label="Plan asignado" error={error("plan")}>
+              <select
+                name="plan"
+                required
+                defaultValue={values.plan}
+                className="flex min-h-[44px] w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm font-medium text-foreground transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/40"
+              >
+                {plans.map((plan) => (
+                  <option key={plan.codigo} value={plan.codigo} className="bg-card text-foreground">
+                    {plan.nombre}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Periodo pagado inicial" error={error("meses")}>
+              <select
+                name="meses"
+                defaultValue="1"
+                className="flex min-h-[44px] w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm font-medium text-foreground transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/40"
+              >
+                {[1, 3, 6, 12].map((m) => (
+                  <option key={m} value={m} className="bg-card text-foreground">
+                    {m} {m === 1 ? "mes" : "meses"}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <div className="pt-2">
+            <Button type="submit" isLoading={pending} className="min-h-[48px] px-6 text-sm font-bold">
+              {pending ? "Creando cliente…" : "Crear cliente"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-semibold text-tinta">{label}</span>
+      <span className="mb-1.5 block text-xs font-bold tracking-wide text-foreground uppercase">{label}</span>
       {children}
-      {error && <span className="mt-1 block text-sm font-medium text-red-600">{error}</span>}
+      {error && <span className="mt-1.5 block text-xs font-medium text-red-500">{error}</span>}
     </label>
   );
 }
 
 function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex flex-wrap justify-between gap-2">
-      <dt className="text-slate-500">{label}</dt>
-      <dd className={`font-semibold break-all text-tinta ${mono ? "font-mono text-base" : ""}`}>{value}</dd>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={`text-sm font-semibold text-foreground ${mono ? "font-mono font-bold text-primary" : ""}`}>
+        {value}
+      </dd>
     </div>
   );
 }

@@ -197,6 +197,49 @@ class PlatformTest extends DatabaseTestCase
         $this->withToken($adminToken)->getJson($this->tenantUrl('donjose', 'plataforma/clientes'))->assertNotFound();
     }
 
+    public function test_admin_corrects_company_data_and_ruc_change_drops_homologation(): void
+    {
+        $tenant = $this->app->make(ProvisionTenant::class)->handle(
+            ['slug' => 'donjose', 'nombre' => 'Don Jose', 'plan' => 'RESTAURANTE', 'estado' => TenantStatus::Active],
+            ['nombre' => 'Admin', 'correo' => 'admin@donjose.pe', 'contrasena' => 'contrasena-segura'],
+            ['ruc' => '20100070970', 'razon_social' => 'DON JOSE SAC'],
+        );
+        $this->app->make(TenantContext::class)->clear();
+        $token = $this->adminToken();
+        $this->withToken($token)->postJson(self::API.'clientes/donjose/homologacion', ['homologado' => true])->assertOk();
+
+        $this->withToken($token)->patchJson(self::API.'clientes/donjose', ['razon_social' => 'DON JOSE RESTAURANTES SAC', 'nombre_comercial' => 'Don José', 'ruc' => '20512345674'])
+            ->assertStatus(422);
+
+        $this->withToken($token)->patchJson(self::API.'clientes/donjose', ['razon_social' => 'DON JOSE RESTAURANTES SAC', 'nombre_comercial' => 'Don José', 'ruc' => '20100047218'])
+            ->assertOk();
+
+        $this->withToken($token)->getJson(self::API.'clientes/donjose')
+            ->assertOk()
+            ->assertJsonPath('data.nombre', 'Don José')
+            ->assertJsonPath('data.ruc', '20100047218')
+            ->assertJsonPath('data.razon_social', 'DON JOSE RESTAURANTES SAC')
+            ->assertJsonPath('data.fiscal.homologado', false)
+            ->assertJsonPath('data.bitacora.0.accion', 'CLIENTE_EDITADO');
+    }
+
+    public function test_cancelling_a_client_closes_sessions_and_blocks_login(): void
+    {
+        $tenant = $this->provision('donjose', TenantStatus::Active);
+        $adminToken = $this->adminToken();
+        $this->userToken($tenant);
+
+        $this->withToken($adminToken)->postJson(self::API.'clientes/donjose/cancelar', [])->assertStatus(422);
+        $this->withToken($adminToken)->postJson(self::API.'clientes/donjose/cancelar', ['motivo' => 'Dejó de usar el sistema'])->assertOk();
+
+        $this->assertSame(TenantStatus::Cancelled, $tenant->refresh()->estado);
+        $this->assertSame(0, $this->insideTenant($tenant, fn () => \Laravel\Sanctum\PersonalAccessToken::where('tokenable_type', (new User)->getMorphClass())->count()));
+        $this->postJson($this->tenantUrl('donjose', 'auth/login'), ['correo' => 'admin@donjose.pe', 'contrasena' => 'contrasena-segura'])
+            ->assertStatus(403)->assertJsonPath('error.codigo', 'INQUILINO_CANCELADO');
+
+        $this->withToken($adminToken)->postJson(self::API.'clientes/donjose/cancelar', ['motivo' => 'otra vez'])->assertStatus(409);
+    }
+
     private function provision(string $slug, TenantStatus $status): Tenant
     {
         $tenant = $this->app->make(ProvisionTenant::class)->handle(

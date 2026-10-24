@@ -18,6 +18,8 @@ Route::prefix('plataforma')->middleware(EnsurePlatformHost::class)->group(functi
         Route::get('/clientes', [ClientController::class, 'index']);
         Route::post('/clientes', [ClientController::class, 'store']);
         Route::get('/clientes/{slug}', [ClientController::class, 'show']);
+        Route::patch('/clientes/{slug}', [ClientController::class, 'update']);
+        Route::post('/clientes/{slug}/cancelar', [ClientController::class, 'cancel']);
         Route::post('/clientes/{slug}/activar-plan', [ClientController::class, 'activatePlan']);
         Route::post('/clientes/{slug}/extender-prueba', [ClientController::class, 'extendTrial']);
         Route::post('/clientes/{slug}/suspender', [ClientController::class, 'suspend']);

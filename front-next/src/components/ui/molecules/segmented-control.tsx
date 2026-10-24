@@ -24,7 +24,7 @@ export function SegmentedControl<T extends string>({
   return (
     <div
       role="group"
-      className={`inline-flex items-center rounded-2xl border border-slate-200/80 bg-white p-1 shadow-2xs ${className}`}
+      className={`inline-flex items-center rounded-2xl border border-border bg-card p-1 shadow-2xs ${className}`}
     >
       {options.map((option) => {
         const isSelected = option.value === value;
@@ -35,8 +35,8 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             className={`flex h-9.5 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all active:scale-[0.98] ${
               isSelected
-                ? "bg-azul text-white shadow-xs"
-                : "text-slate-500 hover:text-azul"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-primary"
             }`}
           >
             {option.icon ? <Icon name={option.icon} className="h-4 w-4" /> : null}

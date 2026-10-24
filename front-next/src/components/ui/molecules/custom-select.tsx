@@ -79,21 +79,21 @@ export function CustomSelect({
         aria-describedby={ariaDescribedBy}
         disabled={disabled}
         onClick={() => !disabled && setIsOpen((prev) => !prev)}
-        className={`flex min-h-[46px] w-full items-center justify-between gap-3 rounded-xl border bg-white px-4 py-2.5 text-left text-base transition-all focus:outline-none focus:ring-4 disabled:pointer-events-none disabled:opacity-60 ${
+        className={`flex min-h-[46px] w-full items-center justify-between gap-3 rounded-xl border bg-card px-4 py-2.5 text-left text-base transition-all focus:outline-none focus:ring-4 disabled:pointer-events-none disabled:opacity-60 ${
           hasError
             ? "border-red-400 focus:border-red-500 focus:ring-red-100"
             : isOpen
-            ? "border-azul ring-4 ring-azul/10"
-            : "border-slate-200 hover:border-slate-300 focus:border-azul focus:ring-azul/10"
+            ? "border-primary ring-4 ring-primary/10"
+            : "border-border hover:border-ring focus:border-primary focus:ring-primary/10"
         }`}
       >
         <div className="flex min-w-0 items-center gap-2.5">
           {selectedOption?.icon ? (
-            <Icon name={selectedOption.icon} className="h-4.5 w-4.5 shrink-0 text-slate-400" />
+            <Icon name={selectedOption.icon} className="h-4.5 w-4.5 shrink-0 text-muted-foreground/70" />
           ) : null}
           <span
             className={`block truncate ${
-              selectedOption ? "font-medium text-tinta" : "text-slate-400"
+              selectedOption ? "font-medium text-foreground" : "text-muted-foreground/70"
             }`}
           >
             {selectedOption ? selectedOption.label : placeholder}
@@ -102,8 +102,8 @@ export function CustomSelect({
 
         <Icon
           name="abajo"
-          className={`h-4.5 w-4.5 shrink-0 text-slate-400 transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-azul" : ""
+          className={`h-4.5 w-4.5 shrink-0 text-muted-foreground/70 transition-transform duration-200 ${
+            isOpen ? "rotate-180 text-primary" : ""
           }`}
         />
       </button>
@@ -114,10 +114,10 @@ export function CustomSelect({
           id={listboxId}
           role="listbox"
           tabIndex={-1}
-          className="absolute z-50 mt-1.5 max-h-60 w-full overflow-y-auto rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-xl transition-all"
+          className="absolute z-50 mt-1.5 max-h-60 w-full overflow-y-auto rounded-2xl border border-border bg-card p-1.5 shadow-xl transition-all"
         >
           {options.length === 0 ? (
-            <div className="px-4 py-3 text-center text-sm text-slate-400">
+            <div className="px-4 py-3 text-center text-sm text-muted-foreground/70">
               No hay opciones disponibles
             </div>
           ) : (
@@ -135,8 +135,8 @@ export function CustomSelect({
                   }}
                   className={`flex min-h-[44px] w-full items-center justify-between gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-[15px] transition-colors ${
                     isSelected
-                      ? "bg-azul/10 font-bold text-azul"
-                      : "text-tinta hover:bg-slate-50 hover:text-azul"
+                      ? "bg-primary/10 font-bold text-primary"
+                      : "text-foreground hover:bg-muted/50 hover:text-primary"
                   }`}
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
@@ -144,14 +144,14 @@ export function CustomSelect({
                       <Icon
                         name={option.icon}
                         className={`h-4.5 w-4.5 shrink-0 ${
-                          isSelected ? "text-azul" : "text-slate-400"
+                          isSelected ? "text-primary" : "text-muted-foreground/70"
                         }`}
                       />
                     ) : null}
                     <div className="min-w-0">
                       <span className="block truncate">{option.label}</span>
                       {option.description ? (
-                        <span className="block truncate text-xs font-normal text-slate-500">
+                        <span className="block truncate text-xs font-normal text-muted-foreground">
                           {option.description}
                         </span>
                       ) : null}
@@ -159,7 +159,7 @@ export function CustomSelect({
                   </div>
 
                   {isSelected ? (
-                    <Icon name="check" className="h-4 w-4 shrink-0 text-azul" />
+                    <Icon name="check" className="h-4 w-4 shrink-0 text-primary" />
                   ) : null}
                 </button>
               );

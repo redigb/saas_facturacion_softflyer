@@ -10,11 +10,11 @@ export default async function NewClientPage() {
 
   return (
     <>
-      <Link href="/plataforma/clientes" className="text-sm font-semibold text-azul hover:text-celeste">
+      <Link href="/plataforma/clientes" className="text-sm font-semibold text-primary hover:text-info">
         ← Clientes
       </Link>
-      <h1 className="mt-3 text-3xl font-bold text-tinta">Nuevo cliente</h1>
-      <p className="mt-1 max-w-2xl text-slate-600">
+      <h1 className="mt-3 text-3xl font-bold text-foreground">Nuevo cliente</h1>
+      <p className="mt-1 max-w-2xl text-foreground/70">
         Para ventas cerradas fuera de la web: el restaurante nace directamente con su plan de pago, sin prueba gratis.
       </p>
       <NewClientForm plans={plans.ok ? plans.data : []} rootDomain={rootDomainLabel()} />

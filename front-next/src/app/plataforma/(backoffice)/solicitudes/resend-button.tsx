@@ -1,26 +1,36 @@
 "use client";
 
 import { useActionState } from "react";
+import { Send, Check } from "lucide-react";
 
 import { resendLink } from "@/app/plataforma/actions";
+import { Button } from "@/components/ui/button";
 
 export function ResendButton({ id }: { id: number }) {
   const [state, action, pending] = useActionState(resendLink.bind(null, id), {});
 
   if (state.ok) {
-    return <span className="text-sm font-semibold text-emerald-600">Enviado ✓</span>;
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-500">
+        <Check className="h-4 w-4" />
+        <span>Enlace enviado</span>
+      </span>
+    );
   }
 
   return (
     <form action={action}>
-      <button
+      <Button
         type="submit"
-        disabled={pending}
-        className="rounded-lg border-2 border-azul px-3 py-1.5 text-xs font-bold text-azul transition hover:bg-azul hover:text-white disabled:opacity-60"
+        size="sm"
+        variant="outline"
+        isLoading={pending}
+        className="gap-1.5 text-xs font-bold hover:border-primary hover:text-primary"
       >
-        {pending ? "Enviando…" : "Reenviar enlace"}
-      </button>
-      {state.mensaje && <p className="mt-1 text-xs text-red-600">{state.mensaje}</p>}
+        <Send className="h-3.5 w-3.5" />
+        <span>Reenviar enlace</span>
+      </Button>
+      {state.mensaje && <p className="mt-1 text-xs text-red-500">{state.mensaje}</p>}
     </form>
   );
 }

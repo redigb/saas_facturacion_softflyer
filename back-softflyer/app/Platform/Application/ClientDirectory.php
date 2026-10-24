@@ -196,6 +196,7 @@ final class ClientDirectory
             'modo' => $tenant->mode()->value,
             'ruc' => $company?->ruc,
             'razon_social' => $company?->razon_social,
+            'direccion_fiscal' => $company?->direccion_fiscal,
             'plan' => $subscription?->plan->nombre,
             'suscripcion' => $subscription === null ? null : [
                 'estado' => $subscription->estado,

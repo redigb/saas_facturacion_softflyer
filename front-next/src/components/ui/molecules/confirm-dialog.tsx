@@ -58,7 +58,7 @@ export function ConfirmDialog({
     },
     primary: {
       badgeBg: "bg-sky-100",
-      badgeText: "text-azul",
+      badgeText: "text-primary",
       confirmVariant: "primary" as const,
     },
   }[variant];
@@ -69,7 +69,7 @@ export function ConfirmDialog({
       <div
         aria-hidden="true"
         onClick={onCancel}
-        className="fixed inset-0 bg-tinta/50 backdrop-blur-xs transition-opacity animate-in fade-in"
+        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in"
       />
 
       {/* Tarjeta del diálogo */}
@@ -78,7 +78,7 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-desc"
-        className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-150"
+        className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-150"
       >
         <div className="flex items-start gap-4">
           <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tones.badgeBg} ${tones.badgeText}`}>
@@ -86,10 +86,10 @@ export function ConfirmDialog({
           </span>
 
           <div className="min-w-0 flex-1">
-            <h2 id="confirm-dialog-title" className="text-lg font-bold text-tinta">
+            <h2 id="confirm-dialog-title" className="text-lg font-bold text-foreground">
               {title}
             </h2>
-            <p id="confirm-dialog-desc" className="mt-1.5 text-sm leading-relaxed text-slate-500">
+            <p id="confirm-dialog-desc" className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
               {description}
             </p>
           </div>

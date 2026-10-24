@@ -5,6 +5,8 @@ namespace App\Platform\Application;
 use App\Core\Billing\Application\ManageFiscalConfiguration;
 use App\Core\Billing\Application\SunatGateway;
 use App\Core\Billing\Application\SunatUnavailable;
+use App\Core\Billing\Infrastructure\Persistence\Receipt;
+use App\Core\Iam\Infrastructure\Persistence\User;
 use App\Core\Tenancy\Application\ProvisionTenant;
 use App\Core\Tenancy\Application\SubdomainAvailability;
 use App\Core\Tenancy\Domain\TenantStatus;
@@ -104,6 +106,57 @@ final class ManageClient
 
             $tenant->update(['estado' => $status]);
             $this->log($admin, $tenant, 'CLIENTE_REACTIVADO', ['estado' => $status->value]);
+        });
+    }
+
+    /**
+     * Corrige los datos de la empresa. El RUC solo cambia mientras no haya comprobantes reales: después de
+     * emitir, las series, el certificado y la constancia de SUNAT ya pertenecen a ese RUC.
+     *
+     * @param  array{ruc?: string, razon_social?: string, nombre_comercial?: string, direccion_fiscal?: ?string}  $changes
+     */
+    public function updateData(Tenant $tenant, array $changes, PlatformAdmin $admin): void
+    {
+        $this->insideTenant($tenant, function () use ($tenant, $changes, $admin) {
+            $company = Company::query()->orderBy('id')->firstOrFail();
+            $changed = array_diff_assoc($changes, $company->only(array_keys($changes)));
+
+            if ($changed === []) {
+                return;
+            }
+
+            if (array_key_exists('ruc', $changed)) {
+                if (Receipt::where('es_simulado', false)->exists()) {
+                    throw new BusinessException('RUC_CON_COMPROBANTES', 'No se puede cambiar el RUC: ya emitió comprobantes reales con el actual.', 409);
+                }
+                // El certificado y el proceso con SUNAT eran de otro RUC.
+                $company->homologado = false;
+            }
+
+            $company->update($changed);
+
+            if (array_key_exists('nombre_comercial', $changed)) {
+                $tenant->update(['nombre' => $changed['nombre_comercial']]);
+            }
+
+            $this->log($admin, $tenant, 'CLIENTE_EDITADO', ['campos' => array_keys($changed)]);
+        });
+    }
+
+    /**
+     * Baja definitiva del cliente: pierde el acceso y se cierran sus sesiones. Los datos se conservan.
+     * No hay vuelta atrás desde el backoffice; para una pausa se usa suspender.
+     */
+    public function cancel(Tenant $tenant, string $reason, PlatformAdmin $admin): void
+    {
+        if ($tenant->estado === TenantStatus::Cancelled) {
+            throw new BusinessException('CLIENTE_YA_CANCELADO', 'El cliente ya está cancelado.', 409);
+        }
+
+        $this->insideTenant($tenant, function () use ($tenant, $reason, $admin) {
+            $tenant->update(['estado' => TenantStatus::Cancelled]);
+            User::query()->each(fn (User $user) => $user->tokens()->delete());
+            $this->log($admin, $tenant, 'CLIENTE_CANCELADO', ['motivo' => $reason]);
         });
     }
 

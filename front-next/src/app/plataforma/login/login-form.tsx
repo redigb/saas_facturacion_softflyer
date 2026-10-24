@@ -16,11 +16,11 @@ export function PlatformLoginForm() {
         </div>
       )}
       <div>
-        <label htmlFor="correo" className="mb-1.5 block text-sm font-semibold text-tinta">Correo</label>
+        <label htmlFor="correo" className="mb-1.5 block text-sm font-semibold text-foreground">Correo</label>
         <input id="correo" name="correo" type="email" required autoComplete="username" className={inputClass} />
       </div>
       <div>
-        <label htmlFor="contrasena" className="mb-1.5 block text-sm font-semibold text-tinta">Contraseña</label>
+        <label htmlFor="contrasena" className="mb-1.5 block text-sm font-semibold text-foreground">Contraseña</label>
         <input id="contrasena" name="contrasena" type="password" required autoComplete="current-password" className={inputClass} />
       </div>
       <button type="submit" disabled={pending} className={`${primaryButton} w-full py-3`}>

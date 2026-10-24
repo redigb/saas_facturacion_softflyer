@@ -24,7 +24,7 @@ export function FormField({
 
   return (
     <div className={className}>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-bold text-tinta">
+      <label htmlFor={id} className="mb-1.5 block text-sm font-bold text-foreground">
         {label}
       </label>
       {children(id, error || hint ? messageId : undefined)}
@@ -34,7 +34,7 @@ export function FormField({
           {error}
         </p>
       ) : hint ? (
-        <p id={messageId} className="mt-1.5 text-xs text-slate-500">
+        <p id={messageId} className="mt-1.5 text-xs text-muted-foreground">
           {hint}
         </p>
       ) : null}
