@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import type { CreatedClient } from "@/app/plataforma/welcome-message";
 import { apiFetch } from "@/lib/api";
 import { PLATFORM_COOKIE } from "@/lib/session";
+import { SECURE_COOKIES } from "@/lib/tenant";
 
 export type FormState = {
   ok?: boolean;
@@ -27,7 +29,7 @@ export async function platformLogin(_prev: FormState, formData: FormData): Promi
   (await cookies()).set(PLATFORM_COOKIE, result.data.token, {
     httpOnly: true,
     sameSite: "strict",
-    secure: process.env.NODE_ENV === "production",
+    secure: SECURE_COOKIES,
     path: "/",
     expires: new Date(result.data.expira_en),
   });
@@ -168,7 +170,7 @@ export async function createClient(_prev: FormState, formData: FormData): Promis
   const fields = ["ruc", "razon_social", "nombre_comercial", "slug", "nombre_contacto", "correo", "plan"];
   const body = Object.fromEntries(fields.map((field) => [field, String(formData.get(field) ?? "").trim()]));
 
-  const result = await apiFetch<{ slug: string; correo: string; contrasena_temporal: string }>("plataforma/clientes", {
+  const result = await apiFetch<CreatedClient>("plataforma/clientes", {
     method: "POST",
     body: JSON.stringify({ ...body, meses: Number(formData.get("meses")) }),
   });
@@ -186,4 +188,20 @@ export async function resendLink(id: number): Promise<FormState> {
   const result = await apiFetch(`plataforma/solicitudes/${id}/reenviar`, { method: "POST" });
 
   return result.ok ? { ok: true, mensaje: "Enlace reenviado." } : { mensaje: result.error.mensaje };
+}
+
+/** Soporte de acceso (spec 035): el usuario recibe un enlace para crear su contraseña; nadie la ve. */
+export async function sendPasswordReset(slug: string, userId: number): Promise<FormState> {
+  const result = await apiFetch<{ correo: string; enlace: string; expira_en: string }>(
+    `plataforma/clientes/${slug}/usuarios/${userId}/restablecer-acceso`,
+    { method: "POST" },
+  );
+
+  if (!result.ok) {
+    return { mensaje: result.error.mensaje };
+  }
+
+  revalidatePath("/plataforma", "layout");
+
+  return { ok: true, resultado: result.data };
 }

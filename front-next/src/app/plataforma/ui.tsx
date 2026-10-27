@@ -53,6 +53,7 @@ export const ACTION_LABELS: Record<string, string> = {
   CLIENTE_SUSPENDIDO: "Cliente suspendido",
   CLIENTE_EDITADO: "Datos corregidos",
   CLIENTE_CANCELADO: "Cliente cancelado",
+  ACCESO_RESTABLECIDO: "Enlace de acceso enviado",
   CLIENTE_REACTIVADO: "Cliente reactivado",
   ENLACE_REENVIADO: "Enlace reenviado",
   HOMOLOGACION_ACTUALIZADA: "Homologación actualizada",

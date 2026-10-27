@@ -15,6 +15,8 @@ import {
 
 import { createClient } from "@/app/plataforma/actions";
 import type { Plan } from "@/app/plataforma/types";
+import { formatDateTime } from "@/app/plataforma/ui";
+import { type CreatedClient, welcomeMessage } from "@/app/plataforma/welcome-message";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -72,27 +74,13 @@ export function NewClientDialog({ plans, rootDomain, trigger, onSuccess }: NewCl
     }
   };
 
-  const handleCopyCredentials = async (created: {
-    slug: string;
-    correo: string;
-    contrasena_temporal: string;
-  }) => {
-    const text = [
-      "¡Bienvenido a Softflyer!",
-      "",
-      `Dirección web: http://${created.slug}.${rootDomain}/login`,
-      `Correo de acceso: ${created.correo}`,
-      `Contraseña temporal: ${created.contrasena_temporal}`,
-      "",
-      "Recuerda cambiar tu contraseña al iniciar sesión.",
-    ].join("\n");
-
+  const handleCopyWelcome = async (created: CreatedClient) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(welcomeMessage(created, rootDomain));
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
-      // Fallback
+      // Sin permiso de portapapeles: el enlace sigue visible para copiarlo a mano.
     }
   };
 
@@ -122,7 +110,7 @@ export function NewClientDialog({ plans, rootDomain, trigger, onSuccess }: NewCl
                   ¡Cliente Creado Exitosamente!
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Comparte estas credenciales de acceso por un canal seguro. La contraseña temporal no se volverá a mostrar.
+                  Enviamos a su correo un enlace para que cree su contraseña. Nadie del equipo la conoce; si no le llega, copia el mensaje y envíaselo por WhatsApp.
                 </p>
               </div>
             </div>
@@ -146,11 +134,13 @@ export function NewClientDialog({ plans, rootDomain, trigger, onSuccess }: NewCl
                 <span className="font-semibold text-foreground">{state.resultado.correo}</span>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-1 pt-0.5">
-                <span className="font-medium text-muted-foreground">Contraseña temporal</span>
-                <span className="rounded-md bg-card px-2.5 py-1 font-mono text-sm font-bold tracking-wide text-foreground border border-border/60">
-                  {state.resultado.contrasena_temporal}
+              <div className="space-y-1.5 pt-0.5">
+                <span className="font-medium text-muted-foreground">
+                  Enlace de activación · vence el {formatDateTime(String(state.resultado.expira_en))}
                 </span>
+                <p className="rounded-md border border-border/60 bg-card px-2.5 py-1.5 font-mono text-[11px] break-all text-foreground">
+                  {state.resultado.enlace_activacion}
+                </p>
               </div>
             </div>
 
@@ -159,22 +149,18 @@ export function NewClientDialog({ plans, rootDomain, trigger, onSuccess }: NewCl
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() =>
-                  handleCopyCredentials(
-                    state.resultado as { slug: string; correo: string; contrasena_temporal: string }
-                  )
-                }
+                onClick={() => handleCopyWelcome(state.resultado as CreatedClient)}
                 className="w-full gap-2 border-border/80 font-semibold"
               >
                 {copied ? (
                   <>
                     <Check className="size-4 text-emerald-600" />
-                    <span className="text-emerald-600">¡Credenciales copiadas al portapapeles!</span>
+                    <span className="text-emerald-600">¡Mensaje copiado al portapapeles!</span>
                   </>
                 ) : (
                   <>
                     <Copy className="size-4 text-muted-foreground" />
-                    <span>Copiar mensaje con credenciales</span>
+                    <span>Copiar mensaje de bienvenida</span>
                   </>
                 )}
               </Button>

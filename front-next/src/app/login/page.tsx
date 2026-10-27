@@ -8,9 +8,9 @@ import { getRequestHost, PLATFORM_SLUG, rootUrl, slugFromHost } from "@/lib/tena
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ verificado?: string }>;
+  searchParams: Promise<{ verificado?: string; restablecida?: string; activada?: string }>;
 }) {
-  const { verificado } = await searchParams;
+  const { verificado, restablecida, activada } = await searchParams;
   const slug = slugFromHost(await getRequestHost());
 
   // Sin subdominio no sabemos a qué empresa entrar: vuelve al portal.
@@ -31,6 +31,16 @@ export default async function LoginPage({
           {verificado === "1" && (
             <div role="status" className="mb-8 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
               ¡Listo! Tu correo fue confirmado y tu restaurante ya está creado. Ingresa con tu contraseña.
+            </div>
+          )}
+          {activada === "1" && (
+            <div role="status" className="mb-8 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+              ¡Tu cuenta está lista! Ingresa con la contraseña que acabas de crear.
+            </div>
+          )}
+          {restablecida === "1" && (
+            <div role="status" className="mb-8 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+              Tu contraseña nueva quedó guardada. Ingresa con ella; cerramos tus sesiones anteriores.
             </div>
           )}
           <LoginForm tenant={result.data} />

@@ -30,6 +30,17 @@ return [
         'bloqueo_segundos' => 15 * 60,
     ],
 
+    // Enlaces para restablecer la contrasena (Doc. 06 §3, spec 035). El que genera soporte
+    // dura mas porque suele enviarse por WhatsApp y el cliente no siempre lo abre al instante.
+    'restablecimiento' => [
+        'minutos_usuario' => 60,
+        'minutos_plataforma' => 24 * 60,
+        // Bienvenida del alta directa (spec 036): el dueno puede abrirla al dia siguiente.
+        'minutos_activacion' => 72 * 60,
+        'max_solicitudes' => 3,
+        'ventana_segundos' => 15 * 60,
+    ],
+
     // Catalogo global de permisos (Doc. 06 §5). El seeder lo sincroniza con la tabla `permisos`.
     'permisos' => [
         'panel.ver' => ['panel', 'Ver el panel de control del restaurante'],

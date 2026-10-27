@@ -6,6 +6,7 @@ import { BillingActions } from "@/app/plataforma/(backoffice)/clientes/[slug]/bi
 import { ClientTabs } from "@/app/plataforma/(backoffice)/clientes/[slug]/client-tabs";
 import { CLIENT_TABS, type ClientTab } from "@/app/plataforma/(backoffice)/clientes/[slug]/tabs";
 import { ProfileActions } from "@/app/plataforma/(backoffice)/clientes/[slug]/profile-actions";
+import { ResetAccessButton } from "@/app/plataforma/(backoffice)/clientes/[slug]/reset-access-button";
 import { SubscriptionActions } from "@/app/plataforma/(backoffice)/clientes/[slug]/subscription-actions";
 import type { ClientDetail, Plan } from "@/app/plataforma/types";
 import { ACTION_LABELS, ClientStatus, formatDate, formatDateTime } from "@/app/plataforma/ui";
@@ -190,7 +191,9 @@ function Users({ client: c }: { client: ClientDetail }) {
     <Card>
       <CardHeader>
         <CardTitle>Usuarios del cliente</CardTitle>
-        <CardDescription>{c.usuarios_detalle.length} {c.usuarios_detalle.length === 1 ? "usuario" : "usuarios"} con acceso a su cuenta.</CardDescription>
+        <CardDescription>
+          {c.usuarios_detalle.length} {c.usuarios_detalle.length === 1 ? "usuario" : "usuarios"} con acceso a su cuenta. Si alguien olvidó su contraseña, envíale un enlace: nadie del equipo la llega a ver.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -199,6 +202,7 @@ function Users({ client: c }: { client: ClientDetail }) {
               <TableHead>Nombre</TableHead>
               <TableHead>Correo</TableHead>
               <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Acceso</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -208,6 +212,9 @@ function Users({ client: c }: { client: ClientDetail }) {
                 <TableCell className="text-muted-foreground">{user.correo}</TableCell>
                 <TableCell>
                   <Badge variant={user.es_activo ? "success" : "neutral"}>{user.es_activo ? "Activo" : "Inactivo"}</Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  {user.es_activo && c.estado !== "CANCELADO" ? <ResetAccessButton slug={c.slug} user={user} /> : null}
                 </TableCell>
               </TableRow>
             ))}

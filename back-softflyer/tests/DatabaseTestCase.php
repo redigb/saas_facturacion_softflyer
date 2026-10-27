@@ -20,6 +20,13 @@ abstract class DatabaseTestCase extends TestCase
 
     protected function migrateFreshUsing(): array
     {
+        // RefreshDatabase vacía la base. Si una variable de entorno real (Docker, CI) le gana a
+        // phpunit.xml, preferimos fallar antes que borrar la base de desarrollo.
+        $database = (string) config('database.connections.pgsql_owner.database');
+        if (! str_ends_with($database, '_test')) {
+            throw new \RuntimeException("Las pruebas se niegan a vaciar la base \"{$database}\": debe terminar en _test.");
+        }
+
         return ['--database' => 'pgsql_owner'] + $this->baseMigrateFreshUsing();
     }
 

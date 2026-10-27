@@ -58,7 +58,7 @@ class TrialRegistrationTest extends DatabaseTestCase
             ->assertConflict()
             ->assertJsonPath('error.codigo', 'SUBDOMINIO_NO_DISPONIBLE');
 
-        Mail::assertNothingSent();
+        Mail::assertNothingOutgoing();
     }
 
     public function test_a_ruc_can_use_the_trial_only_once(): void
@@ -131,7 +131,7 @@ class TrialRegistrationTest extends DatabaseTestCase
     private function sentToken(): string
     {
         $url = null;
-        Mail::assertSent(VerifyTrialMail::class, function (VerifyTrialMail $mail) use (&$url) {
+        Mail::assertQueued(VerifyTrialMail::class, function (VerifyTrialMail $mail) use (&$url) {
             $url = $mail->url;
 
             return true;

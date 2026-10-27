@@ -48,6 +48,7 @@ php artisan migrate --database=pgsql_owner --seed
 
 php artisan serve --host=127.0.0.1 --port=8000
 php artisan reverb:start   # en otra terminal: tiempo real (ver la sección siguiente)
+php artisan queue:work     # en otra terminal: correos y envíos a SUNAT salen por la cola (spec 036)
 ```
 
 ## Tiempo real (WebSockets con Reverb)

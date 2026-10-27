@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { apiFetch, type Tenant, type User } from "@/lib/api";
 import { SESSION_COOKIE } from "@/lib/session";
-import { DEMO_SLUG, getRequestHost, slugFromHost } from "@/lib/tenant";
+import { DEMO_SLUG, getRequestHost, SECURE_COOKIES, slugFromHost } from "@/lib/tenant";
 
 export type LoginState = {
   mensaje?: string;
@@ -56,7 +56,7 @@ async function authenticate(correo: string, contrasena: string): Promise<LoginSt
   (await cookies()).set(SESSION_COOKIE, result.data.token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: SECURE_COOKIES,
     path: "/",
     expires: new Date(result.data.expira_en),
   });

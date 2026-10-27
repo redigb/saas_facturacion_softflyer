@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { apiFetch } from "@/lib/api";
 import { SESSION_COOKIE } from "@/lib/session";
+import { SECURE_COOKIES } from "@/lib/tenant";
 
 export async function logout(): Promise<void> {
   // Revoca el token en Laravel aunque la cookie se borre igual si la API falla.
@@ -33,7 +34,7 @@ export async function switchUser(usuarioId: number, pin: string): Promise<Switch
   (await cookies()).set(SESSION_COOKIE, result.data.token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: SECURE_COOKIES,
     path: "/",
     expires: new Date(result.data.expira_en),
   });

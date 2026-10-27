@@ -6,6 +6,7 @@ use App\Core\Billing\Application\ManageFiscalConfiguration;
 use App\Core\Billing\Application\SunatGateway;
 use App\Core\Billing\Application\SunatUnavailable;
 use App\Core\Billing\Infrastructure\Persistence\Receipt;
+use App\Core\Iam\Application\ResetPassword;
 use App\Core\Iam\Infrastructure\Persistence\User;
 use App\Core\Tenancy\Application\ProvisionTenant;
 use App\Core\Tenancy\Application\SubdomainAvailability;
@@ -160,6 +161,36 @@ final class ManageClient
         });
     }
 
+    /**
+     * Soporte de acceso (spec 035): el usuario recibe un enlace para crear su contrasena.
+     * El administrador nunca la conoce; el enlace se devuelve para enviarlo por otro medio.
+     *
+     * @return array{correo: string, enlace: string, expira_en: string}
+     */
+    public function sendPasswordReset(Tenant $tenant, int $userId, PlatformAdmin $admin): array
+    {
+        if (! $tenant->estado->allowsLogin()) {
+            throw new BusinessException('CLIENTE_CANCELADO', 'El cliente está cancelado: sus usuarios no pueden entrar.', 409);
+        }
+
+        $result = null;
+        $this->insideTenant($tenant, function () use ($tenant, $userId, $admin, &$result) {
+            $user = User::find($userId) ?? throw new BusinessException('USUARIO_NO_ENCONTRADO', 'El usuario no existe en este cliente.', 404);
+            if (! $user->es_activo) {
+                throw new BusinessException('USUARIO_INACTIVO', 'El usuario está desactivado. El cliente debe reactivarlo primero.', 409);
+            }
+
+            $reset = app(ResetPassword::class);
+            $link = $reset->issue($user, ResetPassword::FROM_PLATFORM);
+            $reset->sendLink($user, $link);
+            $this->log($admin, $tenant, 'ACCESO_RESTABLECIDO', ['usuario' => $user->nombre, 'correo' => $user->correo]);
+
+            $result = ['correo' => $user->correo, 'enlace' => $link['url'], 'expira_en' => $link['expira_en']->toIso8601ZuluString()];
+        });
+
+        return $result;
+    }
+
     /** La empresa ya completó su homologación ante SUNAT (Doc. 04 §7): habilita producción. */
     public function setHomologation(Tenant $tenant, bool $homologated, PlatformAdmin $admin): void
     {
@@ -251,33 +282,39 @@ final class ManageClient
 
     /**
      * Alta directa de un cliente de pago (venta cerrada fuera de la web).
-     * Devuelve la contrasena temporal del administrador; se muestra una sola vez.
+     * El administrador nace con una contrasena aleatoria que nadie conoce y recibe un enlace
+     * para crear la suya (spec 036): el equipo de Softflyer nunca la ve.
      *
      * @param  array{ruc: string, razon_social: string, nombre_comercial: string, slug: string, nombre_contacto: string, correo: string, plan: string, meses: int}  $data
-     * @return array{tenant: Tenant, contrasena_temporal: string}
+     * @return array{tenant: Tenant, enlace_activacion: string, expira_en: string}
      */
     public function create(array $data, PlatformAdmin $admin): array
     {
         $this->paidPlan($data['plan']);
         $this->subdomains->ensureAvailable($data['slug']);
-        $password = Str::password(14, symbols: false);
 
         try {
-            $tenant = DB::transaction(function () use ($data, $password, $admin) {
+            [$tenant, $link] = DB::transaction(function () use ($data, $admin) {
                 $tenant = $this->provision->handle(
                     ['slug' => $data['slug'], 'nombre' => $data['nombre_comercial'], 'plan' => $data['plan'], 'estado' => TenantStatus::Active, 'meses' => $data['meses']],
-                    ['nombre' => $data['nombre_contacto'], 'correo' => $data['correo'], 'contrasena' => $password],
+                    ['nombre' => $data['nombre_contacto'], 'correo' => $data['correo'], 'contrasena' => Str::random(64)],
                     ['ruc' => $data['ruc'], 'razon_social' => $data['razon_social']],
                 );
                 $this->log($admin, $tenant, 'CLIENTE_CREADO', ['ruc' => $data['ruc'], 'correo' => $data['correo'], 'meses' => $data['meses']]);
 
-                return $tenant;
+                // provision deja el contexto del cliente fijado: el enlace se crea bajo su RLS.
+                $owner = User::where('correo', $data['correo'])->firstOrFail();
+                $reset = app(ResetPassword::class);
+                $link = $reset->issue($owner, ResetPassword::FROM_ACTIVATION);
+                $reset->sendLink($owner, $link);
+
+                return [$tenant, $link];
             });
         } finally {
             $this->context->clear();
         }
 
-        return ['tenant' => $tenant, 'contrasena_temporal' => $password];
+        return ['tenant' => $tenant, 'enlace_activacion' => $link['url'], 'expira_en' => $link['expira_en']->toIso8601ZuluString()];
     }
 
     private function paidPlan(string $code): Plan

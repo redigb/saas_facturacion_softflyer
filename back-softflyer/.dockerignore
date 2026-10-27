@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+.git
+vendor
+node_modules
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/app/public/*
+storage/app/private/*
+public/storage
+.phpunit.result.cache
+storage/app/greenter/*

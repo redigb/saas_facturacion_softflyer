@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Platform;
 
+use App\Core\Iam\Infrastructure\Mail\ActivateAccountMail;
+use App\Core\Iam\Infrastructure\Mail\PasswordChangedMail;
 use App\Core\Iam\Infrastructure\Persistence\User;
 use App\Core\Tenancy\Application\ProvisionTenant;
 use App\Core\Tenancy\Domain\TenantStatus;
@@ -11,6 +13,7 @@ use App\Core\Tenancy\Infrastructure\TenantContext;
 use App\Platform\Infrastructure\Persistence\PlatformAdmin;
 use Database\Seeders\CatalogoSunatSeeder;
 use Database\Seeders\PermisoPlanSeeder;
+use Illuminate\Support\Facades\Mail;
 use Tests\DatabaseTestCase;
 
 class PlatformTest extends DatabaseTestCase
@@ -90,8 +93,10 @@ class PlatformTest extends DatabaseTestCase
         $this->assertSame(TenantStatus::Active, $tenant->refresh()->estado);
     }
 
-    public function test_admin_creates_a_paid_client_with_a_temporary_password(): void
+    public function test_admin_creates_a_paid_client_who_activates_the_account_with_a_link(): void
     {
+        Mail::fake();
+
         $response = $this->withToken($this->adminToken())->postJson(self::API.'clientes', [
             'ruc' => '20601234565',
             'razon_social' => 'EL HUARIQUE S.A.C.',
@@ -101,14 +106,47 @@ class PlatformTest extends DatabaseTestCase
             'correo' => 'luis@elhuarique.pe',
             'plan' => 'RESTAURANTE',
             'meses' => 12,
-        ])->assertCreated();
+        ])->assertCreated()
+            ->assertJsonMissingPath('data.contrasena_temporal')
+            ->assertJsonPath('data.correo', 'luis@elhuarique.pe');
 
+        $link = $response->json('data.enlace_activacion');
+        $this->assertStringStartsWith('http://elhuarique.localhost:3000/activar?token=', $link);
+        Mail::assertQueued(ActivateAccountMail::class, fn (ActivateAccountMail $mail) => $mail->hasTo('luis@elhuarique.pe') && $mail->url === $link);
+
+        parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+        $this->postJson($this->tenantUrl('elhuarique', 'auth/contrasena/restablecer'), [
+            'token' => $query['token'],
+            'contrasena' => 'mi-clave-del-huarique',
+            'contrasena_confirmation' => 'mi-clave-del-huarique',
+        ])->assertOk();
+
+        // Recien creo su contrasena: no tiene sentido avisarle que "cambio".
+        Mail::assertNotQueued(PasswordChangedMail::class);
         $this->postJson($this->tenantUrl('elhuarique', 'auth/login'), [
             'correo' => 'luis@elhuarique.pe',
-            'contrasena' => $response->json('data.contrasena_temporal'),
+            'contrasena' => 'mi-clave-del-huarique',
         ])
             ->assertOk()
             ->assertJsonPath('data.inquilino.modo', 'PAGO');
+    }
+
+    public function test_activation_link_lasts_three_days(): void
+    {
+        Mail::fake();
+
+        $expires = $this->withToken($this->adminToken())->postJson(self::API.'clientes', [
+            'ruc' => '20601234565',
+            'razon_social' => 'EL HUARIQUE S.A.C.',
+            'nombre_comercial' => 'El Huarique',
+            'slug' => 'elhuarique',
+            'nombre_contacto' => 'Luis Paz',
+            'correo' => 'luis@elhuarique.pe',
+            'plan' => 'RESTAURANTE',
+            'meses' => 1,
+        ])->assertCreated()->json('data.expira_en');
+
+        $this->assertEqualsWithDelta(now()->addDays(3)->timestamp, \Carbon\Carbon::parse($expires)->timestamp, 5);
     }
 
     public function test_client_detail_shows_fiscal_status_without_secrets_and_admin_sets_homologation(): void
@@ -238,6 +276,45 @@ class PlatformTest extends DatabaseTestCase
             ->assertStatus(403)->assertJsonPath('error.codigo', 'INQUILINO_CANCELADO');
 
         $this->withToken($adminToken)->postJson(self::API.'clientes/donjose/cancelar', ['motivo' => 'otra vez'])->assertStatus(409);
+    }
+
+    public function test_support_sends_a_reset_link_without_ever_knowing_the_password(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $tenant = $this->provision('donjose', TenantStatus::Active);
+        $userId = $this->insideTenant($tenant, fn () => User::firstOrFail()->id);
+        $adminToken = $this->adminToken();
+
+        $link = $this->withToken($adminToken)->postJson(self::API."clientes/donjose/usuarios/{$userId}/restablecer-acceso")
+            ->assertOk()
+            ->assertJsonPath('data.correo', 'admin@donjose.pe')
+            ->assertJsonMissingPath('data.contrasena')
+            ->json('data.enlace');
+
+        $this->assertStringStartsWith('http://donjose.localhost:3000/restablecer?token=', $link);
+        \Illuminate\Support\Facades\Mail::assertQueued(\App\Core\Iam\Infrastructure\Mail\ResetPasswordMail::class, fn ($mail) => $mail->hasTo('admin@donjose.pe') && $mail->url === $link);
+        $this->withToken($adminToken)->getJson(self::API.'clientes/donjose')
+            ->assertJsonPath('data.bitacora.0.accion', 'ACCESO_RESTABLECIDO');
+
+        parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+        $this->postJson($this->tenantUrl('donjose', 'auth/contrasena/restablecer'), [
+            'token' => $query['token'],
+            'contrasena' => 'nueva-clave-segura',
+            'contrasena_confirmation' => 'nueva-clave-segura',
+        ])->assertOk();
+        $this->postJson($this->tenantUrl('donjose', 'auth/login'), ['correo' => 'admin@donjose.pe', 'contrasena' => 'nueva-clave-segura'])
+            ->assertOk();
+    }
+
+    public function test_reset_link_rejects_users_of_another_client(): void
+    {
+        $this->provision('donjose', TenantStatus::Active);
+        $other = $this->provision('lacasona', TenantStatus::Active);
+        $foreignId = $this->insideTenant($other, fn () => User::firstOrFail()->id);
+
+        $this->withToken($this->adminToken())->postJson(self::API."clientes/donjose/usuarios/{$foreignId}/restablecer-acceso")
+            ->assertNotFound()
+            ->assertJsonPath('error.codigo', 'USUARIO_NO_ENCONTRADO');
     }
 
     private function provision(string $slug, TenantStatus $status): Tenant

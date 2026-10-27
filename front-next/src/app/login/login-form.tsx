@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { login, loginDemo } from "@/app/login/actions";
@@ -72,9 +73,16 @@ export function LoginForm({ tenant }: { tenant: Tenant }) {
         </div>
 
         <div>
-          <label htmlFor="contrasena" className="mb-1.5 block text-sm font-semibold text-tinta">
-            Contraseña
-          </label>
+          <div className="mb-1.5 flex items-center justify-between gap-3">
+            <label htmlFor="contrasena" className="text-sm font-semibold text-tinta">
+              Contraseña
+            </label>
+            {!isDemo && (
+              <Link href="/olvide" className="text-sm font-semibold text-azul hover:text-celeste">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            )}
+          </div>
           <div className="relative">
             <input
               id="contrasena"

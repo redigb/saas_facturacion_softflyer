@@ -62,6 +62,6 @@ final class RegisterTrial
         $url = rtrim(config('softflyer.frontend_url'), '/').'/registro/verificar?token='.$token;
 
         Mail::to($registration->correo, $registration->nombre_contacto)
-            ->send(new VerifyTrialMail($registration, $url));
+            ->send(new VerifyTrialMail($registration->nombre_contacto, $registration->nombre_comercial, $url));
     }
 }

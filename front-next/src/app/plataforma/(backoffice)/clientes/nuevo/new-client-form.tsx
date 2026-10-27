@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { CheckCircle2, UserPlus, ArrowRight } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, Copy, UserPlus } from "lucide-react";
 
 import { createClient } from "@/app/plataforma/actions";
 import type { Plan } from "@/app/plataforma/types";
+import { formatDateTime } from "@/app/plataforma/ui";
+import { type CreatedClient, welcomeMessage } from "@/app/plataforma/welcome-message";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,9 +20,20 @@ export function NewClientForm({ plans, rootDomain }: { plans: Plan[]; rootDomain
   const [slugEdited, setSlugEdited] = useState(false);
   const [ruc, setRuc] = useState(values.ruc ?? "");
   const error = (field: string) => state.errores?.[field]?.[0];
+  const [copied, setCopied] = useState(false);
+
+  const copyWelcome = async (created: CreatedClient) => {
+    try {
+      await navigator.clipboard.writeText(welcomeMessage(created, rootDomain));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Sin permiso de portapapeles: el enlace sigue visible para copiarlo a mano.
+    }
+  };
 
   if (state.ok && state.resultado) {
-    const created = state.resultado;
+    const created = state.resultado as CreatedClient;
 
     return (
       <Card className="mt-6 max-w-2xl border-success/40 bg-card shadow-sm">
@@ -30,18 +43,21 @@ export function NewClientForm({ plans, rootDomain }: { plans: Plan[]; rootDomain
             <CardTitle className="text-xl text-success">Cliente Creado Exitosamente</CardTitle>
           </div>
           <CardDescription className="text-muted-foreground">
-            Comparte estos datos con el cliente por un canal seguro.{" "}
-            <strong className="text-foreground">La contraseña temporal no se volverá a mostrar</strong>;
-            recuérdale cambiarla al iniciar sesión.
+            Enviamos a su correo un enlace para que cree su contraseña. Nadie del equipo la conoce; si no le llega,
+            copia el mensaje de bienvenida y envíaselo por WhatsApp.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <dl className="space-y-3 rounded-xl border border-border bg-muted/40 p-4 text-sm">
             <Row label="Dirección web" value={`http://${created.slug}.${rootDomain}/login`} />
             <Row label="Correo de acceso" value={created.correo} />
-            <Row label="Contraseña temporal" value={created.contrasena_temporal} mono />
+            <Row label={`Enlace de activación · vence el ${formatDateTime(created.expira_en)}`} value={created.enlace_activacion} mono />
           </dl>
           <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="outline" className="gap-2" onClick={() => copyWelcome(created)}>
+              {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+              <span>{copied ? "Mensaje copiado" : "Copiar mensaje de bienvenida"}</span>
+            </Button>
             <Button asChild className="gap-2">
               <Link href={`/plataforma/clientes/${created.slug}`}>
                 <span>Ver ficha del cliente</span>
@@ -215,7 +231,7 @@ function Row({ label, value, mono = false }: { label: string; value: string; mon
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={`text-sm font-semibold text-foreground ${mono ? "font-mono font-bold text-primary" : ""}`}>
+      <dd className={`text-sm font-semibold text-foreground ${mono ? "font-mono text-xs font-bold break-all text-primary" : ""}`}>
         {value}
       </dd>
     </div>

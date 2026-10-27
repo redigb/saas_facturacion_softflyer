@@ -72,6 +72,8 @@ Para crear una nueva, copia [`_plantilla/`](_plantilla/) con el siguiente númer
 | [032-asistencia-geolocalizada](032-asistencia-geolocalizada/spec.md) | Personal (asistencia) | ✅ | ✅ | Cerrada |
 | [033-panel-operativo-caja](033-panel-operativo-caja/spec.md) | H2 (mejora de Caja) | ✅ | ✅ | Cerrada |
 | [034-ordenes-administrador](034-ordenes-administrador/spec.md) | H2 (mejora operativa) | ✅ | ✅ | Cerrada |
+| [035-restablecer-contrasena](035-restablecer-contrasena/spec.md) | — (soporte y seguridad) | ✅ | ✅ | Cerrada |
+| [036-activacion-y-correos-en-cola](036-activacion-y-correos-en-cola/spec.md) | — (soporte y seguridad) | ✅ | ✅ | Cerrada |
 
 ## Hoja de ruta: configuración general y preview
 
@@ -106,7 +108,7 @@ Orden: 011 → 012 → 014 → 015 → 016, con 013 intercalable. La 017 queda a
 - [x] Fiscal por cliente, alertas y "Probar credenciales" (spec 017b).
 - [x] Editar los datos de la empresa (`PATCH plataforma/clientes/{slug}`): el RUC solo cambia sin comprobantes reales y retira la homologación.
 - [x] Cancelar cliente (`POST plataforma/clientes/{slug}/cancelar`): pierde el acceso, se cierran sus sesiones, los datos se conservan. Se confirma escribiendo el subdominio.
-- [ ] Soporte de usuarios del cliente: resetear contraseña y desactivar usuarios.
+- [x] Soporte de usuarios del cliente: enviar enlace para restablecer contraseña (spec 035). Falta desactivar usuarios desde el backoffice.
 - [ ] Salud técnica: cola detenida y trabajos fallidos.
 - [ ] Cobro de suscripciones: pagos, historial y recordatorio de renovación (requiere spec propia).
 - [ ] Comprobantes de todos los clientes en una vista; equipo y roles del backoffice; filtros, historial y correo de alertas.

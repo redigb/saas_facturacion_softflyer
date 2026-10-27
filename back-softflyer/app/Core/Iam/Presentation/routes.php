@@ -3,6 +3,7 @@
 use App\Core\Iam\Presentation\Controllers\AttendanceController;
 use App\Core\Iam\Presentation\Controllers\AuthController;
 use App\Core\Iam\Presentation\Controllers\ChannelAuthController;
+use App\Core\Iam\Presentation\Controllers\PasswordResetController;
 use App\Core\Iam\Presentation\Controllers\TeamController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
@@ -10,6 +11,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('inquilino')->prefix('auth')->group(function (): void {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:20,1');
+    // Recuperar el acceso con un enlace de un solo uso (spec 035).
+    Route::post('/contrasena/olvide', [PasswordResetController::class, 'forgot'])->middleware('throttle:restablecer');
+    Route::post('/contrasena/restablecer', [PasswordResetController::class, 'reset'])->middleware('throttle:restablecer');
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/yo', [AuthController::class, 'me']);

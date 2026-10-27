@@ -19,7 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Next.js llama a la API desde su servidor y reenvia el subdominio en X-Forwarded-Host.
-        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
+        // En Docker, Next llama desde otra IP de la red interna: TRUSTED_PROXIES la agrega.
+        // Va como texto: Laravel solo entiende "*" como comodín si no es un arreglo.
+        $middleware->trustProxies(at: env('TRUSTED_PROXIES', '127.0.0.1,::1'));
 
         $middleware->alias([
             'inquilino' => ResolveTenantFromSubdomain::class,

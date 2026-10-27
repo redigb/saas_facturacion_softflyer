@@ -67,7 +67,8 @@ class ClientController
         return response()->json(['data' => [
             'slug' => $result['tenant']->slug,
             'correo' => $data['correo'],
-            'contrasena_temporal' => $result['contrasena_temporal'],
+            'enlace_activacion' => $result['enlace_activacion'],
+            'expira_en' => $result['expira_en'],
         ]], 201);
     }
 
@@ -176,6 +177,11 @@ class ClientController
         $this->manage->cancel($this->client($slug), $data['motivo'], $request->user());
 
         return $this->ok();
+    }
+
+    public function sendPasswordReset(string $slug, int $user, Request $request): JsonResponse
+    {
+        return response()->json(['data' => $this->manage->sendPasswordReset($this->client($slug), $user, $request->user())]);
     }
 
     public function setBranchTax(string $slug, int $branch, Request $request): JsonResponse

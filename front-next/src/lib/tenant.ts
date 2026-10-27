@@ -1,7 +1,11 @@
 import { headers } from "next/headers";
 
 const ROOT_DOMAIN = process.env.APP_ROOT_DOMAIN ?? "localhost:3000";
-const PROTOCOL = process.env.NODE_ENV === "production" ? "https" : "http";
+// APP_PROTOCOL permite correr el build de producción sobre http (Docker local).
+const PROTOCOL = process.env.APP_PROTOCOL ?? (process.env.NODE_ENV === "production" ? "https" : "http");
+
+/** Cookies `Secure` solo cuando el sitio se sirve por https; si no, el navegador las descarta. */
+export const SECURE_COOKIES = PROTOCOL === "https";
 
 export const DEMO_SLUG = process.env.DEMO_SLUG ?? "demo";
 

@@ -2,15 +2,15 @@
 
 namespace App\Core\Tenancy\Infrastructure\Mail;
 
-use App\Core\Tenancy\Infrastructure\Persistence\TrialRegistration;
-use Illuminate\Mail\Mailable;
+use App\Shared\Infrastructure\Mail\QueuedMail;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
-class VerifyTrialMail extends Mailable
+class VerifyTrialMail extends QueuedMail
 {
     public function __construct(
-        public readonly TrialRegistration $registration,
+        public readonly string $name,
+        public readonly string $restaurant,
         public readonly string $url,
     ) {}
 
@@ -25,8 +25,8 @@ class VerifyTrialMail extends Mailable
             view: 'mail.verificar-prueba',
             text: 'mail.verificar-prueba-texto',
             with: [
-                'nombre' => strtok($this->registration->nombre_contacto, ' '),
-                'restaurante' => $this->registration->nombre_comercial,
+                'nombre' => strtok($this->name, ' '),
+                'restaurante' => $this->restaurant,
                 'url' => $this->url,
                 'dias' => config('softflyer.prueba.dias'),
                 'horas' => config('softflyer.prueba.verificacion_horas'),
