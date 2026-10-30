@@ -57,7 +57,10 @@ class EmissionTest extends DatabaseTestCase
             public $next;
 
             public $cdr;
+
+            public $sign;
         };
+        $this->sunat->sign = fn () => 'FIRMA=';
         $this->sunat->next = fn () => new SunatResponse(Receipt::ACCEPTED, '0', 'La Factura numero B001-1, ha sido aceptada', '<xml/>', 'ZIPDATA', 'HASH=');
         $this->sunat->cdr = fn () => null;
         $sunat = $this->sunat;
@@ -70,6 +73,11 @@ class EmissionTest extends DatabaseTestCase
                 $this->sunat->calls++;
 
                 return ($this->sunat->next)();
+            }
+
+            public function sign(Receipt $receipt): string
+            {
+                return ($this->sunat->sign)();
             }
 
             public function checkCredentials(Company $company): string
@@ -353,10 +361,16 @@ class EmissionTest extends DatabaseTestCase
         $this->assertSame('2001', $exonerated->leyenda_codigo);
         $this->assertSame('20', DB::table('tipos_afectacion_igv')->where('id', DB::table('detalle_comprobantes')->value('tipo_afectacion_igv_id'))->value('codigo'));
         $this->assertSame(['1000', '2001'], $this->legendCodes());
+        // Spec 037: la leyenda también va impresa en el ticket.
+        $this->as($this->cashier, 'GET', "comprobantes/{$exonerated->id}")
+            ->assertJsonPath('data.leyenda', 'BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA');
 
         // Un local de servicios usa la 2002.
         $this->asTenant(fn () => DB::table('sucursales')->update(['leyenda_amazonia' => '2002']));
-        $this->assertSame('2002', $this->chargeBread()->leyenda_codigo);
+        $services = $this->chargeBread();
+        $this->assertSame('2002', $services->leyenda_codigo);
+        $this->as($this->cashier, 'GET', "comprobantes/{$services->id}")
+            ->assertJsonPath('data.leyenda', 'SERVICIOS PRESTADOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA');
 
         // Lo inafecto nunca pasa a exonerado, ni siquiera en la Amazonía, y sin lo exonerado no hay leyenda.
         $inafecto = DB::table('tipos_afectacion_igv')->where('codigo', '30')->value('id');
@@ -366,6 +380,7 @@ class EmissionTest extends DatabaseTestCase
         $this->assertSame('0.00', $third->op_exonerada);
         $this->assertNull($third->leyenda_codigo);
         $this->assertSame(['1000'], $this->legendCodes());
+        $this->as($this->cashier, 'GET', "comprobantes/{$third->id}")->assertJsonPath('data.leyenda', null);
     }
 
     public function test_the_branch_rate_overrides_the_company_rate_and_a_gravado_branch_has_no_legend(): void
@@ -425,6 +440,65 @@ class EmissionTest extends DatabaseTestCase
         $this->assertStringContainsString('DOCE CON 00/100 SOLES', $xml);
         $this->assertStringContainsString('<cbc:ID schemeID="1">45678912</cbc:ID>', $xml);
         $this->assertStringContainsString('ds:Signature', $xml);
+    }
+
+    public function test_the_ticket_of_a_real_receipt_is_a_valid_printed_representation_even_with_sunat_down(): void
+    {
+        $this->configureCompany();
+        $this->sunat->next = fn () => throw new SunatUnavailable('SUNAT respondió 0109: servicio no disponible');
+
+        $receipt = $this->charge($this->billedOrder([['producto_id' => $this->ids['pan'], 'cantidad' => 1]]), 6)
+            ->assertCreated()->json('data.comprobante');
+
+        $today = now()->setTimezone('America/Lima')->toDateString();
+        $this->assertSame('FIRMA=', $receipt['hash']);
+        $this->assertSame("20100070970|03|B001|1|{$receipt['igv']}|6.00|{$today}|0|0|FIRMA=|", $receipt['qr']);
+        $this->assertSame('Representación impresa de la BOLETA DE VENTA ELECTRÓNICA', $receipt['representacion_impresa']);
+        $this->assertSame('SON SEIS CON 00/100 SOLES', $receipt['importe_en_letras']);
+        $this->assertFalse($receipt['tiene_xml']);
+        $this->assertSame(1, $this->sunat->calls); // se intentó enviar y quedó para reintento
+    }
+
+    public function test_a_failed_signature_never_stops_the_charge(): void
+    {
+        $this->configureCompany();
+        $this->sunat->sign = fn () => throw new \RuntimeException('certificado ilegible');
+        $this->sunat->next = fn () => throw new SunatUnavailable('SUNAT respondió 0109: servicio no disponible');
+
+        $receipt = $this->charge($this->billedOrder([['producto_id' => $this->ids['pan'], 'cantidad' => 1]]), 6)
+            ->assertCreated()->json('data.comprobante');
+
+        $this->assertNull($receipt['hash']);
+        $this->assertNull($receipt['qr']);
+        $this->assertSame(1, DB::table('ventas')->count());
+    }
+
+    public function test_xml_and_cdr_downloads_use_sunat_names_and_respect_permissions(): void
+    {
+        $this->configureCompany();
+        $receipt = $this->charge($this->billedOrder([['producto_id' => $this->ids['pan'], 'cantidad' => 1]]), 6)
+            ->assertCreated()->json('data.comprobante');
+
+        $this->as($this->cashier, 'GET', "comprobantes/{$receipt['id']}")->assertJsonPath('data.tiene_xml', true)->assertJsonPath('data.tiene_cdr', true);
+        $xml = $this->as($this->cashier, 'GET', "comprobantes/{$receipt['id']}/xml")->assertOk();
+        $this->assertStringContainsString('20100070970-03-B001-00000001.xml', (string) $xml->headers->get('content-disposition'));
+        $cdr = $this->as($this->cashier, 'GET', "comprobantes/{$receipt['id']}/cdr")->assertOk();
+        $this->assertStringContainsString('R-20100070970-03-B001-00000001.zip', (string) $cdr->headers->get('content-disposition'));
+
+        $this->as($this->waiter, 'GET', "comprobantes/{$receipt['id']}/xml")->assertForbidden();
+    }
+
+    public function test_a_simulated_receipt_has_no_qr_and_nothing_to_download(): void
+    {
+        $receipt = $this->charge($this->billedOrder([['producto_id' => $this->ids['pan'], 'cantidad' => 1]]), 6)
+            ->assertCreated()->json('data.comprobante');
+
+        $this->assertTrue($receipt['es_simulado']);
+        $this->assertNull($receipt['qr']);
+        $this->assertNull($receipt['representacion_impresa']);
+        $this->assertSame('SON SEIS CON 00/100 SOLES', $receipt['importe_en_letras']);
+        $this->as($this->cashier, 'GET', "comprobantes/{$receipt['id']}/xml")->assertNotFound();
+        $this->as($this->cashier, 'GET', "comprobantes/{$receipt['id']}/cdr")->assertNotFound();
     }
 
     /** Cobra una venta real y deja su comprobante PENDIENTE_ENVIO sin enviar (la cola está simulada). */

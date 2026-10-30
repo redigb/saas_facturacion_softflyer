@@ -49,7 +49,7 @@ final class GreenterGateway implements SunatGateway
         }
 
         $xml = (string) $see->getXmlSigned($invoice);
-        $hash = preg_match('~<ds:DigestValue>([^<]+)</ds:DigestValue>~', $xml, $match) ? $match[1] : null;
+        $hash = $this->digest($xml);
 
         if (! $result->isSuccess()) {
             $code = (string) $result->getError()?->getCode();
@@ -70,6 +70,19 @@ final class GreenterGateway implements SunatGateway
         }
 
         return $this->fromCdr($result->getCdrResponse(), $result->getCdrZip(), $xml, $hash);
+    }
+
+    public function sign(Receipt $receipt): string
+    {
+        [, $see] = $this->see($receipt);
+        $hash = $this->digest((string) $see->getXmlSigned($this->mapper->invoice($receipt)));
+
+        return $hash ?? throw new \RuntimeException("El XML firmado del comprobante {$receipt->id} no trae DigestValue.");
+    }
+
+    private function digest(string $xml): ?string
+    {
+        return preg_match('~<ds:DigestValue>([^<]+)</ds:DigestValue>~', $xml, $match) ? $match[1] : null;
     }
 
     public function cdr(Receipt $receipt): ?SunatResponse

@@ -99,6 +99,9 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
             // Laravel escribe fechas en UTC sin offset: la sesion debe estar en UTC (Doc. 07 §7).
             'timezone' => 'UTC',
+            // Solo desarrollo: si conectas con un superusuario (p. ej. postgres de Laragon), la API
+            // hace SET ROLE a este rol al conectar para que RLS sí aplique. Vacío = no cambia nada.
+            'role' => env('DB_ROLE'),
         ],
 
         // Rol dueño del esquema: solo para migraciones y seeders, nunca para la API.

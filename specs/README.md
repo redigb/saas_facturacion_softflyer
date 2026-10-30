@@ -74,6 +74,7 @@ Para crear una nueva, copia [`_plantilla/`](_plantilla/) con el siguiente númer
 | [034-ordenes-administrador](034-ordenes-administrador/spec.md) | H2 (mejora operativa) | ✅ | ✅ | Cerrada |
 | [035-restablecer-contrasena](035-restablecer-contrasena/spec.md) | — (soporte y seguridad) | ✅ | ✅ | Cerrada |
 | [036-activacion-y-correos-en-cola](036-activacion-y-correos-en-cola/spec.md) | — (soporte y seguridad) | ✅ | ✅ | Cerrada |
+| [037-facturacion-usable](037-facturacion-usable/spec.md) | H3 (facturación) | ✅ | ✅ | Lista para probar |
 
 ## Hoja de ruta: configuración general y preview
 

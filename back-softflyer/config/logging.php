@@ -65,6 +65,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Correos con MAIL_MAILER=log: van aparte para no mezclarse con laravel.log.
+        'correos' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/correos.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),

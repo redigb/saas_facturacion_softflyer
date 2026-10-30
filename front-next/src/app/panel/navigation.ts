@@ -33,7 +33,7 @@ export const NAVIGATION: NavSection[] = [
     items: [
       { label: "Carta", icon: "carta", href: "/panel/carta", permisos: ["productos.crear", "productos.editar", "productos.eliminar", "restaurante.pedidos.crear"] },
       { label: "Inventario", icon: "inventario", href: "/panel/inventario", permisos: ["inventario.ver"] },
-      { label: "Facturación", icon: "facturacion", permisos: ["comprobantes.emitir"] },
+      { label: "Facturación", icon: "facturacion", href: "/panel/facturacion", permisos: ["comprobantes.emitir"] },
     ],
   },
   {

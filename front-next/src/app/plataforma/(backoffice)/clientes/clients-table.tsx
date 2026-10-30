@@ -3,22 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Search, ArrowUpRight, Building2, User, X, SearchX } from "lucide-react";
+import { ChevronRight, Search, SearchX, X } from "lucide-react";
 
 import type { Client } from "@/app/plataforma/types";
-import { ClientStatus, formatDate, statusOf } from "@/app/plataforma/ui";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ClientStatus, formatDate, needsAttention, statusOf } from "@/app/plataforma/ui";
+import { EmptyPanel } from "@/components/backoffice/molecules/notice";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { EmptyPanel } from "@/components/backoffice/molecules/notice";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 const FILTERS = [
   { key: "todos", label: "Todos" },
@@ -29,6 +23,67 @@ const FILTERS = [
 ] as const;
 
 type FilterKey = (typeof FILTERS)[number]["key"];
+
+/** Cuánto le queda al cliente y hasta cuándo, en una frase: lo que se mira para saber a quién escribirle. */
+function Remaining({ client }: { client: Client }) {
+  const trial = client.modo === "PRUEBA";
+  const end = trial ? client.prueba?.vence_en : client.suscripcion?.fecha_vencimiento;
+  const left = trial ? client.prueba?.dias_restantes : client.suscripcion?.dias_restantes;
+
+  if (!end || left === undefined) {
+    return <p className="text-sm text-muted-foreground">Sin periodo registrado</p>;
+  }
+  const expired = trial ? client.prueba?.vencida : left < 0;
+  const soon = !expired && left <= 7;
+
+  return (
+    <>
+      <p className={cn("text-sm font-semibold", expired ? "text-destructive" : "text-foreground")}>
+        {expired ? "Venció" : left === 0 ? "Vence hoy" : `${trial ? "Prueba:" : "Vence en"} ${left} ${left === 1 ? "día" : "días"}`}
+        {soon ? <span aria-hidden className="ml-2 inline-block size-2 rounded-full bg-warning align-middle" /> : null}
+        {soon ? <span className="sr-only"> (por vencer)</span> : null}
+      </p>
+      <p className="text-[13px] text-muted-foreground">
+        {trial ? "Termina el" : "Hasta el"} {formatDate(end)}
+      </p>
+    </>
+  );
+}
+
+/** Etiqueta y detalle por etapa: qué validez tienen hoy sus comprobantes y qué le falta para la siguiente. */
+const BILLING_STAGES = {
+  CONFIGURAR: { label: "Simulado", tone: "bg-warning/25 text-foreground" },
+  HOMOLOGAR: { label: "En pruebas", tone: "bg-muted text-foreground/80" },
+  SERVIDOR_PRUEBAS: { label: "En pruebas", tone: "bg-muted text-foreground/80" },
+  PRODUCCION: { label: "Con validez", tone: "bg-primary/10 text-primary" },
+} as const;
+
+/** En qué punto de la ruta a SUNAT está: lo que se mira para saber a quién hay que terminar de configurar. */
+function BillingStage({ client }: { client: Client }) {
+  const billing = client.facturacion;
+  if (!billing) {
+    return <p className="text-sm text-muted-foreground">Sin empresa</p>;
+  }
+  const { label, tone } = BILLING_STAGES[billing.etapa];
+  const detail =
+    billing.etapa === "CONFIGURAR"
+      ? `Falta: ${billing.pendientes.join(", ")}`
+      : billing.etapa === "HOMOLOGAR"
+        ? "Falta homologar"
+        : billing.etapa === "SERVIDOR_PRUEBAS"
+          ? "Homologado; este servidor es de pruebas"
+          : "Emite en SUNAT";
+
+  return (
+    <>
+      <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", tone)}>
+        <span aria-hidden className="size-1.5 rounded-full bg-current" />
+        {label}
+      </span>
+      <p className="mt-1 text-[13px] leading-snug text-muted-foreground">{detail}</p>
+    </>
+  );
+}
 
 export function ClientsTable({ clients, initialFilter }: { clients: Client[]; initialFilter?: string }) {
   const [filter, setFilterState] = useState<FilterKey>(
@@ -52,42 +107,45 @@ export function ClientsTable({ clients, initialFilter }: { clients: Client[]; in
     return byKey;
   }, [clients]);
 
-  const visible = clients.filter((client) => {
+  // Primero los que necesitan atención (prueba vencida, por vencer, suspendidos); el resto conserva su orden.
+  const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const matchesSearch =
-      !term ||
-      [client.nombre, client.slug, client.ruc, client.razon_social, client.contacto.correo, client.contacto.nombre]
-        .filter(Boolean)
-        .some((value) => value!.toLowerCase().includes(term));
 
-    return matchesSearch && (filter === "todos" || statusOf(client).key === filter);
-  });
+    return clients
+      .filter((client) => {
+        const matchesSearch =
+          !term ||
+          [client.nombre, client.slug, client.ruc, client.razon_social, client.contacto.correo, client.contacto.nombre]
+            .filter(Boolean)
+            .some((value) => value!.toLowerCase().includes(term));
+
+        return matchesSearch && (filter === "todos" || statusOf(client).key === filter);
+      })
+      .map((client, index) => ({ client, index }))
+      .sort((a, b) => Number(needsAttention(b.client)) - Number(needsAttention(a.client)) || a.index - b.index)
+      .map(({ client }) => client);
+  }, [clients, search, filter]);
 
   return (
-    <Card className="mt-8 overflow-hidden border-border shadow-sm">
-      {/* Controls Bar */}
-      <div className="flex flex-col gap-4 border-b border-border/60 bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="overflow-hidden border-border bg-card shadow-xs">
+      <div className="flex flex-col gap-3 border-b border-border/70 p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar clientes por estado">
           {FILTERS.map((item) => {
-            const isSelected = filter === item.key;
+            const selected = filter === item.key;
+
             return (
               <button
                 key={item.key}
                 type="button"
-                aria-pressed={isSelected}
+                aria-pressed={selected}
                 onClick={() => setFilter(item.key)}
-                className={`inline-flex items-center gap-1.5 cursor-pointer rounded-xl px-3 py-1.5 text-xs font-bold outline-none transition-all focus-visible:ring-4 focus-visible:ring-ring/40 ${
-                  isSelected
-                    ? "bg-primary text-primary-foreground shadow-2xs"
-                    : "bg-muted/80 text-foreground/70 hover:bg-muted hover:text-foreground"
-                }`}
+                className={cn(
+                  "inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full px-3.5 text-sm font-medium outline-none transition-colors focus-visible:ring-4 focus-visible:ring-ring/40",
+                  selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground/80 hover:bg-muted/70 hover:text-foreground",
+                )}
               >
-                <span>{item.label}</span>
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-xs tabular-nums ${
-                    isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-card text-muted-foreground"
-                  }`}
-                >
+                {item.label}
+                <span className={cn("text-[13px] tabular-nums", selected ? "text-primary-foreground/80" : "text-muted-foreground")}>
                   {counts[item.key] ?? 0}
                 </span>
               </button>
@@ -95,22 +153,22 @@ export function ClientsTable({ clients, initialFilter }: { clients: Client[]; in
           })}
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search aria-hidden className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+        <div className="relative w-full lg:w-80">
+          <Search aria-hidden className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, RUC o email…"
+            placeholder="Buscar por nombre, RUC o correo"
             aria-label="Buscar clientes"
-            className="px-9 text-xs"
+            className="px-9 text-sm"
           />
           {search ? (
             <button
               type="button"
               onClick={() => setSearch("")}
               aria-label="Limpiar búsqueda"
-              className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <X className="size-4" aria-hidden />
             </button>
@@ -121,78 +179,72 @@ export function ClientsTable({ clients, initialFilter }: { clients: Client[]; in
       <p className="sr-only" role="status" aria-live="polite">
         {visible.length} {visible.length === 1 ? "cliente" : "clientes"}
       </p>
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="w-[30%]">Restaurante</TableHead>
-            <TableHead>RUC</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead>Plan / Suscripción</TableHead>
-            <TableHead>Contacto</TableHead>
-            <TableHead className="text-right">Usuarios</TableHead>
-            <TableHead className="w-[70px]"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {visible.map((client) => (
-            <TableRow key={client.id} className="group cursor-pointer" onClick={(event) => { if (!(event.target as HTMLElement).closest("a,button")) router.push(`/plataforma/clientes/${client.slug}`); }}>
-              <TableCell className="font-medium">
-                <Link
-                  href={`/plataforma/clientes/${client.slug}`}
-                  className="font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5"
-                >
-                  <Building2 className="h-4 w-4 text-muted-foreground/70 group-hover:text-primary shrink-0" />
-                  <span className="truncate">{client.nombre}</span>
-                </Link>
-                <p className="mt-0.5 text-xs text-muted-foreground/70 pl-5.5">
-                  <span className="font-mono">{client.slug}</span> ·{" "}
-                  {client.origen === "PRUEBA_WEB" ? "Prueba web" : "Alta directa"}
-                </p>
-              </TableCell>
-              <TableCell>
-                <span className="font-mono text-xs font-semibold text-foreground/70 bg-muted px-2 py-0.5 rounded-md">
-                  {client.ruc ?? "—"}
-                </span>
-              </TableCell>
-              <TableCell>
-                <ClientStatus client={client} />
-              </TableCell>
-              <TableCell>
-                <div className="text-sm font-semibold text-foreground/70">{client.plan ?? "—"}</div>
-                {client.suscripcion && (
-                  <p className="text-xs text-muted-foreground/70">
-                    Vence {formatDate(client.suscripcion.fecha_vencimiento)}
-                  </p>
-                )}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
-                  <User className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
-                  <span>{client.contacto.nombre}</span>
-                </div>
-                <p className="text-xs text-muted-foreground/70 pl-5">{client.contacto.correo}</p>
-              </TableCell>
-              <TableCell className="text-right font-extrabold text-foreground tabular-nums">
-                {client.usuarios}
-              </TableCell>
-              <TableCell className="text-right">
-                <Button asChild size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground/70 group-hover:text-primary">
-                  <Link href={`/plataforma/clientes/${client.slug}`} aria-label={`Ver ${client.nombre}`}>
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
 
-      {visible.length === 0 && (
+      {visible.length > 0 ? (
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[32%]">Restaurante</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Plan</TableHead>
+              <TableHead>Facturación</TableHead>
+              <TableHead>Contacto</TableHead>
+              <TableHead className="text-right">Usuarios</TableHead>
+              <TableHead className="w-10">
+                <span className="sr-only">Abrir</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visible.map((client) => (
+              <TableRow
+                key={client.id}
+                className="group cursor-pointer"
+                onClick={(event) => {
+                  if (!(event.target as HTMLElement).closest("a,button")) router.push(`/plataforma/clientes/${client.slug}`);
+                }}
+              >
+                <TableCell>
+                  <Link
+                    href={`/plataforma/clientes/${client.slug}`}
+                    className="block truncate text-[15px] font-semibold text-foreground transition-colors group-hover:text-primary"
+                  >
+                    {client.nombre}
+                  </Link>
+                  <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
+                    RUC <span className="tabular-nums">{client.ruc ?? "sin registrar"}</span>
+                    <span aria-hidden> · </span>
+                    {client.origen === "PRUEBA_WEB" ? "Prueba web" : "Alta directa"}
+                  </p>
+                </TableCell>
+                <TableCell>
+                  <ClientStatus client={client} />
+                </TableCell>
+                <TableCell>
+                  <p className="text-sm text-foreground/80">{client.plan ?? "Sin plan"}</p>
+                  <Remaining client={client} />
+                </TableCell>
+                <TableCell className="max-w-[14rem] whitespace-normal">
+                  <BillingStage client={client} />
+                </TableCell>
+                <TableCell>
+                  <p className="truncate text-sm font-medium text-foreground">{client.contacto.nombre ?? "Sin nombre"}</p>
+                  <p className="truncate text-[13px] text-muted-foreground">{client.contacto.correo ?? "Sin correo"}</p>
+                </TableCell>
+                <TableCell className="text-right text-sm font-semibold tabular-nums text-foreground">{client.usuarios}</TableCell>
+                <TableCell className="text-right">
+                  <ChevronRight aria-hidden className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
         <EmptyPanel
           tone="neutral"
           icon={SearchX}
-          title="No se encontraron clientes"
-          description="Prueba con otro término de búsqueda o quita el filtro."
+          title="Ningún cliente coincide"
+          description="Prueba con otro nombre, RUC o correo, o quita el filtro de estado."
           action={
             <Button
               variant="outline"

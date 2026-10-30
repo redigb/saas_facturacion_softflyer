@@ -90,6 +90,20 @@
   font-family: var(--font-backoffice), ui-sans-serif, system-ui, sans-serif !important;
 }
 
+/*
+ * Regla de pesos del backoffice: sin letra gruesa. La fuente es variable (1–1000), así que se fijan pesos intermedios
+ * y ningún `font-bold` / `font-extrabold` / `font-black` de una pantalla pasa de este tope. Para algo más fino,
+ * usar `font-medium` o `font-semibold`.
+ */
+[data-theme='backoffice'] .font-bold {
+  font-weight: 600;
+}
+
+[data-theme='backoffice'] .font-extrabold,
+[data-theme='backoffice'] .font-black {
+  font-weight: 650;
+}
+
 /* Accesibilidad e interacción (UX): quien pide menos movimiento no recibe animaciones, y todo lo pulsable lo parece. */
 @media (prefers-reduced-motion: reduce) {
   [data-theme='backoffice'] *,

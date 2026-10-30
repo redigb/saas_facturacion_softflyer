@@ -37,6 +37,15 @@ class Receipt extends BaseModel
 
     public const WAIT_CREDENTIALS = 'CREDENCIALES'; // pausado hasta que Softflyer corrija las credenciales
 
+    /** Hora oficial de la fecha de emisión: la que va en el XML, el ticket y el QR. */
+    public const TIMEZONE = 'America/Lima';
+
+    /** Catálogo 15: leyendas de las operaciones exoneradas por la Amazonía. Van en el XML y en el ticket. */
+    public const AMAZONIA_LEGENDS = [
+        '2001' => 'BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA',
+        '2002' => 'SERVICIOS PRESTADOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA',
+    ];
+
     protected $table = 'comprobantes';
 
     protected function casts(): array

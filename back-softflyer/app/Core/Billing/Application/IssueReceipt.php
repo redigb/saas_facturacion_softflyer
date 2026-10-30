@@ -10,6 +10,7 @@ use App\Core\Tenancy\Application\BranchIgvPolicy;
 use App\Core\Tenancy\Domain\Ruc;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Emite el comprobante de una venta (spec 010 y 017b). Numera y guarda al instante; si la
@@ -24,7 +25,11 @@ final class IssueReceipt
     /** Desde este total (S/) SUNAT exige identificar al comprador de una boleta. */
     private const IDENTIFIED_BOLETA_FROM = 700;
 
-    public function __construct(private readonly ManageFiscalConfiguration $fiscal, private readonly BranchIgvPolicy $igvPolicy) {}
+    public function __construct(
+        private readonly ManageFiscalConfiguration $fiscal,
+        private readonly BranchIgvPolicy $igvPolicy,
+        private readonly SunatGateway $sunat,
+    ) {}
 
     public const INVOICE = '01';
 
@@ -76,10 +81,25 @@ final class IssueReceipt
         $this->copyLines($sale, $receipt);
 
         if ($real) {
+            $this->sign($receipt);
             SendReceiptJob::dispatch((int) $receipt->inquilino_id, $receipt->id)->afterCommit();
         }
 
         return $receipt;
+    }
+
+    /**
+     * El hash va impreso en el ticket (spec 037): se firma ya, sin internet, para imprimir aunque
+     * SUNAT esté caída. Si la firma falla el cobro sigue; el Job firma de nuevo al enviar.
+     */
+    private function sign(Receipt $receipt): void
+    {
+        try {
+            // Punto de guardado: un error de SQL aquí no debe abortar la transacción del cobro.
+            DB::transaction(fn () => $receipt->update(['hash_firma' => $this->sunat->sign($receipt)]));
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     /** El detalle viaja con el comprobante: lo que se firma no cambia aunque la carta cambie después. */
@@ -88,7 +108,7 @@ final class IssueReceipt
         $rate = 1 + $this->igvPolicy->percent($receipt->sucursal_id) / 100;
         $affectation = DB::table('tipos_afectacion_igv')->pluck('codigo', 'id');
 
-        $rows = DB::table('detalle_ventas')->where('venta_id', $sale->id)->orderBy('id')->get()->map(function ($line) use ($receipt, $rate, $affectation) {
+        $rows = DB::table('detalle_ventas')->where('venta_id', $sale->id)->orderBy('id')->get()->map(function ($line) use ($receipt, $affectation) {
             $taxed = ($affectation[$line->tipo_afectacion_igv_id] ?? '10') === '10';
             $quantity = (float) $line->cantidad > 0 ? (float) $line->cantidad : 1.0;
             $value = (float) $line->total - (float) $line->igv;

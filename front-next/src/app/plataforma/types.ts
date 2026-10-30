@@ -12,6 +12,8 @@ export type Client = {
   plan: string | null;
   suscripcion: { estado: string; fecha_vencimiento: string; dias_restantes: number } | null;
   prueba: { vence_en: string; dias_restantes: number; vencida: boolean } | null;
+  /** Punto de la ruta a SUNAT; null si aún no tiene empresa. */
+  facturacion: { etapa: "CONFIGURAR" | "HOMOLOGAR" | "SERVIDOR_PRUEBAS" | "PRODUCCION"; pendientes: string[] } | null;
   usuarios: number;
   origen: "PRUEBA_WEB" | "MANUAL";
   contacto: { nombre: string | null; correo: string | null; telefono: string | null };

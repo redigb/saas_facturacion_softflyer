@@ -18,6 +18,12 @@ interface SunatGateway
     public function send(Receipt $receipt): SunatResponse;
 
     /**
+     * Firma el comprobante solo con el certificado, sin salir a internet, y devuelve el resumen
+     * (DigestValue) que va impreso en el ticket y en su QR (spec 037).
+     */
+    public function sign(Receipt $receipt): string;
+
+    /**
      * El CDR que SUNAT ya tiene de un comprobante (recupera una respuesta perdida). Null si no lo
      * entrega todavía o la consulta no existe en el entorno (en beta no hay).
      *

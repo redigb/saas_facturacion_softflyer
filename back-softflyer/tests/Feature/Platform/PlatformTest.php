@@ -4,6 +4,7 @@ namespace Tests\Feature\Platform;
 
 use App\Core\Iam\Infrastructure\Mail\ActivateAccountMail;
 use App\Core\Iam\Infrastructure\Mail\PasswordChangedMail;
+use App\Core\Iam\Infrastructure\Mail\ResetPasswordMail;
 use App\Core\Iam\Infrastructure\Persistence\User;
 use App\Core\Tenancy\Application\ProvisionTenant;
 use App\Core\Tenancy\Domain\TenantStatus;
@@ -11,9 +12,11 @@ use App\Core\Tenancy\Infrastructure\Persistence\Subscription;
 use App\Core\Tenancy\Infrastructure\Persistence\Tenant;
 use App\Core\Tenancy\Infrastructure\TenantContext;
 use App\Platform\Infrastructure\Persistence\PlatformAdmin;
+use Carbon\Carbon;
 use Database\Seeders\CatalogoSunatSeeder;
 use Database\Seeders\PermisoPlanSeeder;
 use Illuminate\Support\Facades\Mail;
+use Laravel\Sanctum\PersonalAccessToken;
 use Tests\DatabaseTestCase;
 
 class PlatformTest extends DatabaseTestCase
@@ -37,6 +40,10 @@ class PlatformTest extends DatabaseTestCase
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.slug', 'donjose')
             ->assertJsonPath('data.0.modo', 'PAGO')
+            // Recién creado no tiene certificado ni clave SOL: aún emite simulado.
+            ->assertJsonPath('data.0.facturacion.etapa', 'CONFIGURAR')
+            ->assertJsonPath('data.0.facturacion.pendientes.0', 'Certificado digital')
+            ->assertJsonPath('data.0.facturacion.pendientes.1', 'Clave SOL')
             ->assertJsonPath('data.1.slug', 'lacasona')
             ->assertJsonPath('data.1.modo', 'PRUEBA')
             ->assertJsonPath('data.1.usuarios', 1);
@@ -54,9 +61,32 @@ class PlatformTest extends DatabaseTestCase
         $this->withToken($token)->getJson(self::API.'clientes/lacasona')
             ->assertJsonPath('data.modo', 'PAGO')
             ->assertJsonPath('data.suscripciones.0.estado', 'ACTIVA')
-            ->assertJsonPath('data.suscripciones.0.fecha_vencimiento', today()->addMonths(3)->toDateString())
+            ->assertJsonPath('data.suscripciones.0.fecha_vencimiento', today()->addMonthsNoOverflow(3)->toDateString())
             ->assertJsonPath('data.suscripciones.1.estado', 'PRUEBA')
             ->assertJsonPath('data.bitacora.0.accion', 'PLAN_ACTIVADO');
+    }
+
+    public function test_early_renewal_adds_to_the_time_left_and_late_renewal_starts_today(): void
+    {
+        $this->provision('lacasona', TenantStatus::Trial);
+        $token = $this->adminToken();
+        $renew = fn (int $months) => $this->withToken($token)->postJson(self::API.'clientes/lacasona/activar-plan', ['plan' => 'RESTAURANTE', 'meses' => $months])->assertOk();
+        $end = fn () => $this->withToken($token)->getJson(self::API.'clientes/lacasona')->json('data.suscripciones.0.fecha_vencimiento');
+
+        $renew(3);
+        $paidUntil = today()->addMonthsNoOverflow(3);
+
+        // Le quedaban 3 meses: renovar 1 lo deja en 4, no en 1.
+        $renew(1);
+        $this->assertSame($paidUntil->copy()->addMonthsNoOverflow(1)->toDateString(), $end());
+
+        // Si ya había vencido, no se regalan los días vencidos: cuenta desde hoy.
+        $this->insideTenant(Tenant::where('slug', 'lacasona')->firstOrFail(), fn () => Subscription::query()->update([
+            'fecha_inicio' => today()->subMonths(2),
+            'fecha_vencimiento' => today()->subDays(5),
+        ]));
+        $renew(1);
+        $this->assertSame(today()->addMonthsNoOverflow(1)->toDateString(), $end());
     }
 
     public function test_expired_trial_is_extended_from_today(): void
@@ -146,7 +176,7 @@ class PlatformTest extends DatabaseTestCase
             'meses' => 1,
         ])->assertCreated()->json('data.expira_en');
 
-        $this->assertEqualsWithDelta(now()->addDays(3)->timestamp, \Carbon\Carbon::parse($expires)->timestamp, 5);
+        $this->assertEqualsWithDelta(now()->addDays(3)->timestamp, Carbon::parse($expires)->timestamp, 5);
     }
 
     public function test_client_detail_shows_fiscal_status_without_secrets_and_admin_sets_homologation(): void
@@ -271,7 +301,7 @@ class PlatformTest extends DatabaseTestCase
         $this->withToken($adminToken)->postJson(self::API.'clientes/donjose/cancelar', ['motivo' => 'Dejó de usar el sistema'])->assertOk();
 
         $this->assertSame(TenantStatus::Cancelled, $tenant->refresh()->estado);
-        $this->assertSame(0, $this->insideTenant($tenant, fn () => \Laravel\Sanctum\PersonalAccessToken::where('tokenable_type', (new User)->getMorphClass())->count()));
+        $this->assertSame(0, $this->insideTenant($tenant, fn () => PersonalAccessToken::where('tokenable_type', (new User)->getMorphClass())->count()));
         $this->postJson($this->tenantUrl('donjose', 'auth/login'), ['correo' => 'admin@donjose.pe', 'contrasena' => 'contrasena-segura'])
             ->assertStatus(403)->assertJsonPath('error.codigo', 'INQUILINO_CANCELADO');
 
@@ -280,7 +310,7 @@ class PlatformTest extends DatabaseTestCase
 
     public function test_support_sends_a_reset_link_without_ever_knowing_the_password(): void
     {
-        \Illuminate\Support\Facades\Mail::fake();
+        Mail::fake();
         $tenant = $this->provision('donjose', TenantStatus::Active);
         $userId = $this->insideTenant($tenant, fn () => User::firstOrFail()->id);
         $adminToken = $this->adminToken();
@@ -292,7 +322,7 @@ class PlatformTest extends DatabaseTestCase
             ->json('data.enlace');
 
         $this->assertStringStartsWith('http://donjose.localhost:3000/restablecer?token=', $link);
-        \Illuminate\Support\Facades\Mail::assertQueued(\App\Core\Iam\Infrastructure\Mail\ResetPasswordMail::class, fn ($mail) => $mail->hasTo('admin@donjose.pe') && $mail->url === $link);
+        Mail::assertQueued(ResetPasswordMail::class, fn ($mail) => $mail->hasTo('admin@donjose.pe') && $mail->url === $link);
         $this->withToken($adminToken)->getJson(self::API.'clientes/donjose')
             ->assertJsonPath('data.bitacora.0.accion', 'ACCESO_RESTABLECIDO');
 

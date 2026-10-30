@@ -50,14 +50,14 @@ export function activeHref(pathname: string): string | undefined {
     .sort((a, b) => b.length - a.length)[0];
 }
 
-export function currentSection(pathname: string): { group: string; label: string } | undefined {
+export function currentSection(pathname: string): { group: string; label: string; href: string } | undefined {
   const href = activeHref(pathname);
 
   for (const group of BACKOFFICE_SECTIONS) {
     const item = group.items.find((candidate) => candidate.href === href);
 
     if (item) {
-      return { group: group.title, label: item.label };
+      return { group: group.title, label: item.label, href: item.href };
     }
   }
 

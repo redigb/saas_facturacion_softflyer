@@ -1,7 +1,9 @@
-import { CheckCircle2, Circle } from "lucide-react";
+import { Check } from "lucide-react";
 import Link from "next/link";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export type OnboardingStep = {
   label: string;
@@ -9,42 +11,76 @@ export type OnboardingStep = {
   done: boolean;
   /** Pestaña de la ficha donde se completa. */
   tab: string;
+  /** Ancla dentro de esa pestaña, cuando el paso se resuelve en la misma página. */
+  anchor?: string;
 };
 
-/** Qué le falta a un cliente para emitir en producción: cada paso pendiente lleva a donde se resuelve. */
+/**
+ * Qué le falta a un cliente para emitir en producción. Solo los pasos pendientes ocupan espacio: cada uno lleva a
+ * donde se resuelve; los hechos se resumen en una línea.
+ */
 export function OnboardingChecklist({ steps, baseHref }: { steps: OnboardingStep[]; baseHref: string }) {
-  const completed = steps.filter((step) => step.done).length;
-  const percent = Math.round((completed / steps.length) * 100);
+  const completed = steps.filter((step) => step.done);
+  const pending = steps.filter((step) => !step.done);
+  const next = pending[0];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Puesta en marcha</CardTitle>
-        <CardDescription>
-          {completed === steps.length ? "Todo listo: el cliente puede emitir en producción." : `${completed} de ${steps.length} pasos completos.`}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+    <Card className="border-border bg-card shadow-xs">
+      <div className="space-y-4 px-5 pb-5 pt-6 sm:px-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h2 className="text-lg font-bold text-foreground">Puesta en marcha</h2>
+          <p className="text-sm tabular-nums text-muted-foreground">
+            {completed.length} de {steps.length} pasos
+          </p>
         </div>
-        <ul className="mt-4 divide-y divide-border">
+
+        {/* Un tramo por paso: azul hecho, amarillo el siguiente, gris lo que viene después. */}
+        <ol className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }} aria-hidden>
           {steps.map((step) => (
-            <li key={step.label} className="flex items-start gap-3 py-3 text-sm">
-              {step.done ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" /> : <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-foreground">{step.label}</p>
-                <p className="text-muted-foreground">{step.hint}</p>
+            <li
+              key={step.label}
+              title={step.label}
+              className={cn("h-2 rounded-full", step.done ? "bg-primary" : step === next ? "bg-warning" : "bg-muted")}
+            />
+          ))}
+        </ol>
+
+        {pending.length === 0 ? (
+          <p className="text-sm leading-relaxed text-foreground">Todo listo: el cliente tiene lo necesario para emitir con validez.</p>
+        ) : completed.length > 0 ? (
+          <p className="flex items-start gap-2 text-sm leading-relaxed text-muted-foreground">
+            <Check className="mt-0.5 size-4 shrink-0 text-primary" strokeWidth={3} aria-hidden />
+            <span>
+              <span className="sr-only">Completados: </span>
+              {completed.map((step) => step.label).join(", ")}.
+            </span>
+          </p>
+        ) : null}
+      </div>
+
+      {pending.length > 0 ? (
+        <ul className="divide-y divide-border/70 border-t border-border/70">
+          {pending.map((step) => (
+            <li
+              key={step.label}
+              className={cn("flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-4 sm:px-6", step === next && "bg-warning/10")}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">
+                  {step.label}
+                  {step === next ? <span className="ml-2 text-[13px] font-semibold text-foreground/70">Siguiente paso</span> : null}
+                </p>
+                <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">{step.hint}</p>
               </div>
-              {step.done ? null : (
-                <Link href={`${baseHref}?tab=${step.tab}`} scroll={false} className="shrink-0 text-xs font-bold text-primary hover:underline">
+              <Button asChild size="sm" variant={step === next ? "default" : "outline"} className="shrink-0 font-semibold">
+                <Link href={`${baseHref}?tab=${step.tab}${step.anchor ? `#${step.anchor}` : ""}`} scroll={Boolean(step.anchor)}>
                   Completar
                 </Link>
-              )}
+              </Button>
             </li>
           ))}
         </ul>
-      </CardContent>
+      ) : null}
     </Card>
   );
 }

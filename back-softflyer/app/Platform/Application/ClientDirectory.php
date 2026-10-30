@@ -4,6 +4,7 @@ namespace App\Platform\Application;
 
 use App\Core\Billing\Application\ManageFiscalConfiguration;
 use App\Core\Iam\Infrastructure\Persistence\User;
+use App\Core\Tenancy\Domain\Ruc;
 use App\Core\Tenancy\Infrastructure\Persistence\Company;
 use App\Core\Tenancy\Infrastructure\Persistence\Subscription;
 use App\Core\Tenancy\Infrastructure\Persistence\Tenant;
@@ -204,6 +205,7 @@ final class ClientDirectory
                 'dias_restantes' => (int) today()->diffInDays($subscription->fecha_vencimiento, false),
             ],
             'prueba' => $tenant->trial(),
+            'facturacion' => $company === null ? null : $this->billingStage($company),
             'usuarios' => User::count(),
             'origen' => $lead === null ? 'MANUAL' : 'PRUEBA_WEB',
             'contacto' => [
@@ -213,5 +215,33 @@ final class ClientDirectory
             ],
             'creado_en' => $tenant->creado_en->toIso8601ZuluString(),
         ];
+    }
+
+    /**
+     * En qué punto de la ruta a SUNAT está el cliente, para el listado:
+     * CONFIGURAR (le faltan datos; emite simulado), HOMOLOGAR (emite en pruebas),
+     * SERVIDOR_PRUEBAS (homologado, pero este despliegue no es producción) o PRODUCCION.
+     *
+     * @return array{etapa: string, pendientes: list<string>}
+     */
+    private function billingStage(Company $company): array
+    {
+        $fiscal = app(ManageFiscalConfiguration::class)->status();
+
+        $pending = array_values(array_filter([
+            $fiscal['certificado'] === null ? 'Certificado digital' : null,
+            $fiscal['certificado'] !== null && ! $fiscal['certificado']['vigente'] ? 'Renovar certificado' : null,
+            blank($fiscal['usuario_sol']) || ! $fiscal['tiene_clave_sol'] ? 'Clave SOL' : null,
+            Ruc::isValid((string) $company->ruc) ? null : 'RUC válido',
+        ]));
+
+        $stage = match (true) {
+            $pending !== [] => 'CONFIGURAR',
+            ! $fiscal['homologado'] => 'HOMOLOGAR',
+            $fiscal['entorno'] !== 'PRODUCCION' => 'SERVIDOR_PRUEBAS',
+            default => 'PRODUCCION',
+        };
+
+        return ['etapa' => $stage, 'pendientes' => $pending];
     }
 }

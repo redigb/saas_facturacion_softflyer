@@ -3,10 +3,11 @@
 import { useActionState, useState } from "react";
 import { Check, Copy, KeyRound, MailCheck } from "lucide-react";
 
-import { sendPasswordReset } from "@/app/plataforma/actions";
+import { sendPasswordReset, type FormState } from "@/app/plataforma/actions";
 import { formatDateTime } from "@/app/plataforma/ui";
 import { ErrorNotice } from "@/components/backoffice/molecules/notice";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import {
   Dialog,
   DialogContent,
@@ -26,13 +27,22 @@ type User = { id: number; nombre: string; correo: string };
 export function ResetAccessButton({ slug, user }: { slug: string; user: User }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [state, action, pending] = useActionState(sendPasswordReset.bind(null, slug, user.id), {});
+  const [state, action, pending] = useActionState(async () => {
+    const res = await sendPasswordReset(slug, user.id);
+    if (res.ok) {
+      toast.success(res.mensaje || "Enlace de restablecimiento generado con éxito.");
+    } else if (res.mensaje) {
+      toast.error(res.mensaje);
+    }
+    return res;
+  }, {} as FormState);
   const sent = state.ok ? (state.resultado as { correo: string; enlace: string; expira_en: string }) : null;
 
   const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
+      toast.success("Enlace de acceso copiado al portapapeles.");
       setTimeout(() => setCopied(false), 2500);
     } catch {
       // Sin permiso de portapapeles: el enlace sigue visible para copiarlo a mano.
@@ -42,7 +52,7 @@ export function ResetAccessButton({ slug, user }: { slug: string; user: User }) 
   return (
     <Dialog open={open} onOpenChange={(value) => { setOpen(value); setCopied(false); }}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+        <Button size="sm" variant="outline" className="gap-1.5 font-semibold">
           <KeyRound className="size-3.5" />
           <span>Restablecer acceso</span>
         </Button>

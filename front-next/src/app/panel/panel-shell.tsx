@@ -141,7 +141,7 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
           </div>
         </header>
 
-        <main className={isFullWidth ? "w-full px-4 sm:px-6 py-6" : "mx-auto max-w-7xl px-4 py-8 sm:px-8"}>
+        <main className="w-full px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </main>
       </div>

@@ -158,7 +158,7 @@ export async function setCompanyRate(slug: string, _prev: FormState, formData: F
 export async function setBranchTax(slug: string, branchId: number, _prev: FormState, formData: FormData): Promise<FormState> {
   const rate = String(formData.get("tasa_igv_id") ?? "");
   const body = JSON.stringify({
-    tasa_igv_id: rate === "" ? null : Number(rate),
+    tasa_igv_id: !rate || rate === "empresa" ? null : Number(rate),
     exonerado_amazonia: formData.get("exonerado_amazonia") === "on",
     leyenda_amazonia: String(formData.get("leyenda_amazonia") ?? "2001"),
   });

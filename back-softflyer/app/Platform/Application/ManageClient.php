@@ -44,17 +44,23 @@ final class ManageClient
         $plan = $this->paidPlan($planCode);
 
         $this->insideTenant($tenant, function () use ($tenant, $plan, $months, $admin) {
+            // Renovar antes de tiempo no hace perder lo ya pagado: los meses se suman al
+            // vencimiento vigente. Los dias de prueba no se arrastran al pasar a pago.
+            $current = Subscription::orderByDesc('id')->first();
+            $base = $current?->estado === 'ACTIVA' ? $current->fecha_vencimiento->max(today()) : today();
+
             $subscription = Subscription::create([
                 'plan_id' => $plan->id,
                 'estado' => 'ACTIVA',
                 'fecha_inicio' => today(),
-                'fecha_vencimiento' => today()->addMonths($months),
+                'fecha_vencimiento' => $base->copy()->addMonthsNoOverflow($months),
             ]);
             $tenant->update(['estado' => TenantStatus::Active]);
 
             $this->log($admin, $tenant, 'PLAN_ACTIVADO', [
                 'plan' => $plan->nombre,
                 'meses' => $months,
+                'dias_arrastrados' => today()->diffInDays($base),
                 'vence' => $subscription->fecha_vencimiento->toDateString(),
             ]);
         });

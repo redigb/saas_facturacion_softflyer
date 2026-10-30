@@ -71,11 +71,29 @@ export const receiptSchema = z.object({
   emitido_en: z.string(),
   empresa: z.object({ razon_social: z.string().nullable(), ruc: z.string().nullable(), nombre_comercial: z.string().nullable(), direccion: z.string().nullable() }),
   cliente: z.object({ tipo_documento: z.string(), numero: z.string().nullable(), nombre: z.string() }),
+  sucursal: z.string().nullable(),
   op_gravada: money,
+  op_exonerada: money,
+  op_inafecta: money,
   igv: money,
   total: money,
+  // Representación impresa (spec 037): null en los simulados.
+  importe_en_letras: z.string(),
+  leyenda: z.string().nullable(), // Amazonía (2001/2002): solo si hay algo exonerado
+  representacion_impresa: z.string().nullable(),
+  hash: z.string().nullable(),
+  qr: z.string().nullable(),
+  mensaje_sunat: z.string().nullable(),
+  tiene_xml: z.boolean(),
+  tiene_cdr: z.boolean(),
   lineas: z.array(z.object({ descripcion: z.string(), cantidad: z.string(), precio_unitario: money, total: money })),
   pagos: z.array(z.object({ metodo: z.string(), monto: money })),
+});
+
+/** Página del historial de "Facturación" (spec 037). */
+export const receiptPageSchema = z.object({
+  data: z.array(receiptSchema),
+  meta: z.object({ pagina_actual: z.number(), por_pagina: z.number(), total: z.number(), ultima_pagina: z.number() }),
 });
 
 export const chargeResultSchema = z.object({

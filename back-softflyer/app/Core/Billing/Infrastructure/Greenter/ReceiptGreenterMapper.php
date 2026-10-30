@@ -8,9 +8,9 @@ use App\Shared\Domain\AmountInWords;
 use Greenter\Model\Client\Client;
 use Greenter\Model\Company\Address;
 use Greenter\Model\Company\Company;
+use Greenter\Model\Sale\FormaPagos\FormaPagoContado;
 use Greenter\Model\Sale\Invoice;
 use Greenter\Model\Sale\Legend;
-use Greenter\Model\Sale\FormaPagos\FormaPagoContado;
 use Greenter\Model\Sale\SaleDetail;
 use Illuminate\Support\Facades\DB;
 
@@ -18,12 +18,6 @@ use Illuminate\Support\Facades\DB;
 final class ReceiptGreenterMapper
 {
     private const CLIENT_DOCUMENT = ['-' => '0', '1' => '1', '6' => '6'];
-
-    /** Catálogo 15: leyendas de las operaciones exoneradas por la Amazonía. */
-    private const AMAZONIA_LEGENDS = [
-        '2001' => 'BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA',
-        '2002' => 'SERVICIOS PRESTADOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA',
-    ];
 
     public function __construct(private readonly BranchIgvPolicy $igvPolicy) {}
 
@@ -44,7 +38,7 @@ final class ReceiptGreenterMapper
             ->setTipoDoc($type)
             ->setSerie($receipt->serie)
             ->setCorrelativo((string) $receipt->correlativo)
-            ->setFechaEmision($receipt->emitido_en->toDateTime())
+            ->setFechaEmision($receipt->emitido_en->copy()->setTimezone(Receipt::TIMEZONE)->toDateTime())
             ->setFormaPago(new FormaPagoContado)
             ->setTipoMoneda('PEN')
             ->setCompany($this->company($receipt))
@@ -65,8 +59,8 @@ final class ReceiptGreenterMapper
     private function legends(Receipt $receipt): array
     {
         $legends = [(new Legend)->setCode('1000')->setValue(AmountInWords::soles((string) $receipt->total))];
-        if (isset(self::AMAZONIA_LEGENDS[$receipt->leyenda_codigo])) {
-            $legends[] = (new Legend)->setCode($receipt->leyenda_codigo)->setValue(self::AMAZONIA_LEGENDS[$receipt->leyenda_codigo]);
+        if (isset(Receipt::AMAZONIA_LEGENDS[$receipt->leyenda_codigo])) {
+            $legends[] = (new Legend)->setCode($receipt->leyenda_codigo)->setValue(Receipt::AMAZONIA_LEGENDS[$receipt->leyenda_codigo]);
         }
 
         return $legends;

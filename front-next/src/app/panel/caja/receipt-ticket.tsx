@@ -1,5 +1,7 @@
 "use client";
 
+import { QRCodeSVG } from "qrcode.react";
+
 import { Drawer } from "@/app/panel/carta/ui";
 import { Icon } from "@/components/icons";
 import { Button } from "@/components/ui";
@@ -9,9 +11,21 @@ const DOCUMENT_LABEL: Record<string, string> = { DNI: "DNI", RUC: "RUC", SIN_DOC
 
 /**
  * Comprobante con formato de ticket (80 mm) y su impresión por el navegador (spec 010).
- * Mientras no esté Greenter, dice "SIMULADO" en pantalla y en el papel.
+ * Los reales son la representación impresa de SUNAT: leyenda, importe en letras, hash y QR (spec 037).
+ * Los simulados dicen "SIMULADO" en pantalla y en el papel.
  */
-export function ReceiptTicket({ receipt, onClose }: { receipt: Receipt; onClose: () => void }) {
+export function ReceiptTicket({
+  receipt,
+  onClose,
+  downloads = false,
+  children,
+}: {
+  receipt: Receipt;
+  onClose: () => void;
+  downloads?: boolean;
+  /** Va encima del ticket y no se imprime (p. ej. el estado ante SUNAT). */
+  children?: React.ReactNode;
+}) {
   const date = new Date(receipt.emitido_en).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" });
   const title = receipt.tipo === "FACTURA" ? "FACTURA ELECTRÓNICA" : "BOLETA DE VENTA ELECTRÓNICA";
 
@@ -26,6 +40,12 @@ export function ReceiptTicket({ receipt, onClose }: { receipt: Receipt; onClose:
             <Icon name="lista" className="h-5 w-5" />
             Imprimir
           </Button>
+          {downloads && !receipt.es_simulado ? (
+            <>
+              <DownloadLink href={`/api/comprobantes/${receipt.id}/xml`} available={receipt.tiene_xml} label="XML" />
+              <DownloadLink href={`/api/comprobantes/${receipt.id}/cdr`} available={receipt.tiene_cdr} label="CDR" />
+            </>
+          ) : null}
           <Button variant="secondary" onClick={onClose}>
             Cerrar
           </Button>
@@ -34,6 +54,8 @@ export function ReceiptTicket({ receipt, onClose }: { receipt: Receipt; onClose:
     >
       {/* Al imprimir solo se ve el ticket: el resto de la pantalla se oculta. */}
       <style>{`@media print { body * { visibility: hidden !important; } #ticket-comprobante, #ticket-comprobante * { visibility: visible !important; } #ticket-comprobante { position: fixed; left: 0; top: 0; width: 80mm; border: 0; box-shadow: none; } }`}</style>
+
+      {children}
 
       <div id="ticket-comprobante" className="mx-auto w-full max-w-[80mm] rounded-xl border border-slate-200 bg-white p-4 font-mono text-[12px] leading-5 text-tinta shadow-2xs">
         {receipt.es_simulado ? (
@@ -79,15 +101,47 @@ export function ReceiptTicket({ receipt, onClose }: { receipt: Receipt; onClose:
 
         <dl className="mt-3 space-y-0.5 border-t border-dashed border-slate-300 pt-2 tabular-nums">
           <Total label="Op. gravada" value={receipt.op_gravada} />
+          {Number(receipt.op_exonerada) > 0 ? <Total label="Op. exonerada" value={receipt.op_exonerada} /> : null}
+          {Number(receipt.op_inafecta) > 0 ? <Total label="Op. inafecta" value={receipt.op_inafecta} /> : null}
           <Total label="IGV" value={receipt.igv} />
           <Total label="TOTAL S/" value={receipt.total} bold />
         </dl>
 
+        <p className="mt-2 text-[11px] font-bold">{receipt.importe_en_letras}</p>
+        {receipt.leyenda ? <p className="mt-1 text-[10px] leading-4">{receipt.leyenda}</p> : null}
+
         <p className="mt-3 border-t border-dashed border-slate-300 pt-2">
           Pago: {receipt.pagos.map((payment) => `${payment.metodo} ${payment.monto}`).join(" · ")}
         </p>
+
+        {receipt.representacion_impresa ? (
+          <div className="mt-3 flex flex-col items-center gap-2 border-t border-dashed border-slate-300 pt-3 text-center">
+            {receipt.qr ? <QRCodeSVG value={receipt.qr} size={113} level="M" marginSize={0} aria-label="Código QR de SUNAT" /> : null}
+            {receipt.hash ? <p className="break-all text-[10px]">Resumen: {receipt.hash}</p> : null}
+            <p className="text-[11px]">{receipt.representacion_impresa}</p>
+          </div>
+        ) : null}
       </div>
     </Drawer>
+  );
+}
+
+/** Solo descarga si el archivo existe; si no, explica por qué (spec 037). */
+function DownloadLink({ href, available, label }: { href: string; available: boolean; label: string }) {
+  if (!available) {
+    return (
+      <Button variant="secondary" disabled title="SUNAT aún no responde por este comprobante">
+        {label}
+      </Button>
+    );
+  }
+
+  return (
+    <Button asChild variant="secondary">
+      <a href={href} download>
+        {label}
+      </a>
+    </Button>
   );
 }
 

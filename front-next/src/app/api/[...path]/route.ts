@@ -7,7 +7,7 @@ const API_URL = process.env.API_URL ?? "http://127.0.0.1:8000";
 
 // Cabeceras del navegador que la API necesita; el resto no viaja.
 const FORWARDED_REQUEST_HEADERS = ["content-type", "if-none-match", "idempotency-key"];
-const FORWARDED_RESPONSE_HEADERS = ["content-type", "etag", "idempotency-replayed"];
+const FORWARDED_RESPONSE_HEADERS = ["content-type", "content-disposition", "etag", "idempotency-replayed"];
 
 /**
  * Proxy del navegador hacia Laravel (spec 002). Las pantallas de cliente (React Query)
@@ -61,7 +61,7 @@ async function forward(request: NextRequest, { params }: { params: Promise<{ pat
       if (value) responseHeaders.set(name, value);
     }
 
-    const body = upstream.status === 204 || upstream.status === 304 ? null : await upstream.text();
+    const body = upstream.status === 204 || upstream.status === 304 ? null : await upstream.arrayBuffer(); // el CDR es un zip (spec 037)
 
     return new Response(body, { status: upstream.status, headers: responseHeaders });
   } catch (error) {

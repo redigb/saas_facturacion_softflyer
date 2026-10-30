@@ -112,6 +112,32 @@ class ReceiptTest extends DatabaseTestCase
         $this->as($this->waiter, 'GET', "comprobantes/{$id}")->assertForbidden();
     }
 
+    public function test_the_billing_history_filters_searches_and_pages(): void
+    {
+        $this->charge($this->billedOrder($this->ids['m1'], [['producto_id' => $this->ids['pan'], 'cantidad' => 1]]), 6)->assertCreated();
+        $this->charge($this->billedOrder($this->ids['m2'], [['producto_id' => $this->ids['pan'], 'cantidad' => 1]]), 6, ['tipo_documento' => 'RUC', 'numero' => '20100070970', 'nombre' => 'Supermercados Peruanos SA'])->assertCreated();
+        $this->charge($this->billedOrder($this->ids['m1'], [['producto_id' => $this->ids['pan'], 'cantidad' => 1]]), 6, ['tipo_documento' => 'DNI', 'numero' => '45678912', 'nombre' => 'Ana Pérez'])->assertCreated();
+        $today = now()->setTimezone('America/Lima')->toDateString();
+        $tomorrow = now()->setTimezone('America/Lima')->addDay()->toDateString();
+
+        $all = $this->as($this->cashier, 'GET', "comprobantes/historial?desde={$today}&hasta={$today}")->assertOk();
+        $this->assertSame(['B001-00000002', 'F001-00000001', 'B001-00000001'], array_column($all->json('data'), 'numero'));
+        $all->assertJsonPath('meta.total', 3)->assertJsonPath('data.0.sucursal', 'Local principal');
+
+        $this->as($this->cashier, 'GET', 'comprobantes/historial?tipo=FACTURA')->assertJsonCount(1, 'data')->assertJsonPath('data.0.numero', 'F001-00000001');
+        $this->as($this->cashier, 'GET', 'comprobantes/historial?estado=SIMULADOS')->assertJsonPath('meta.total', 3);
+        $this->as($this->cashier, 'GET', 'comprobantes/historial?estado=ACEPTADOS')->assertJsonPath('meta.total', 0);
+        $this->as($this->cashier, 'GET', 'comprobantes/historial?buscar=b001-1')->assertJsonCount(1, 'data')->assertJsonPath('data.0.numero', 'B001-00000001');
+        $this->as($this->cashier, 'GET', 'comprobantes/historial?buscar=Pérez')->assertJsonCount(1, 'data');
+        $this->as($this->cashier, 'GET', 'comprobantes/historial?buscar=45678912')->assertJsonCount(1, 'data');
+        $this->as($this->cashier, 'GET', "comprobantes/historial?desde={$tomorrow}")->assertJsonCount(0, 'data');
+        $this->as($this->cashier, 'GET', 'comprobantes/historial?por_pagina=2&pagina=2')
+            ->assertJsonCount(1, 'data')->assertJsonPath('meta.ultima_pagina', 2)->assertJsonPath('data.0.numero', 'B001-00000001');
+        $this->as($this->cashier, 'GET', "comprobantes/historial?desde={$tomorrow}&hasta={$today}")->assertStatus(422);
+
+        $this->as($this->waiter, 'GET', 'comprobantes/historial')->assertForbidden();
+    }
+
     private function billedOrder(int $table, array $items): int
     {
         $order = $this->open($table)->json('data.id');

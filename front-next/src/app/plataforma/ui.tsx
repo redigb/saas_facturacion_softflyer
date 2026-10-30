@@ -1,11 +1,39 @@
 import type { Client } from "@/app/plataforma/types";
-import { Badge } from "@/components/ui/badge";
+
+/** Colores por tono, sin verde: azul si opera, gris si está en prueba, amarillo si hay que actuar, rojo si está bloqueado. */
+const STATUS_TONES = {
+  success: "bg-primary/10 text-primary",
+  info: "bg-muted text-foreground/80",
+  warning: "bg-warning/25 text-foreground",
+  destructive: "bg-destructive/10 text-destructive",
+  neutral: "bg-muted text-muted-foreground",
+} as const;
 
 /** Estado comercial de un cliente, en una sola etiqueta. */
 export function ClientStatus({ client }: { client: Client }) {
   const { label, variant } = statusOf(client);
 
-  return <Badge variant={variant} className="whitespace-nowrap font-bold px-2.5 py-0.5">{label}</Badge>;
+  return (
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_TONES[variant]}`}>
+      <span aria-hidden className="size-1.5 rounded-full bg-current" />
+      {label}
+    </span>
+  );
+}
+
+/** Prueba vencida, por vencer en 7 días o menos, o cliente suspendido: lo primero que hay que atender. */
+export function needsAttention(client: Client): boolean {
+  if (client.estado === "SUSPENDIDO") {
+    return true;
+  }
+  if (client.estado === "CANCELADO") {
+    return false;
+  }
+  if (client.modo === "PRUEBA") {
+    return Boolean(client.prueba?.vencida) || (client.prueba?.dias_restantes ?? 0) <= 7;
+  }
+
+  return (client.suscripcion?.dias_restantes ?? Infinity) <= 7;
 }
 
 export function statusOf(client: Client): { label: string; variant: "destructive" | "neutral" | "warning" | "info" | "success"; key: string } {
