@@ -260,7 +260,9 @@ function BillCard({ order, now, onOpen }: { order: OrderSummary; now: number; on
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-lg font-bold text-tinta">{order.mesa ? `Mesa ${order.mesa.codigo}` : "Para llevar"}</p>
+          <p className="truncate text-lg font-bold text-tinta">
+            {order.mesa ? `Mesa ${order.mesa.codigo}` : order.mesa_referencia ? `Mesa ${order.mesa_referencia.codigo} · Para llevar` : "Para llevar"}
+          </p>
           <p className="truncate text-xs text-slate-500">
             #{order.numero} · {order.mozo?.nombre ?? "Sin mozo"}
           </p>

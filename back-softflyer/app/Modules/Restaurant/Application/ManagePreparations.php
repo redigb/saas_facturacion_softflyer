@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Storage;
 /** Fichas descriptivas de preparación por estación (spec 031). */
 final class ManagePreparations
 {
+    /** Catálogo de unidades de medida de los ingredientes (spec 038). */
+    public const UNIDADES = ['ONZ', 'ML', 'GR', 'KG'];
+
     public function __construct(
         private readonly MenuAssignments $assignments,
         private readonly ManageKitchenAccess $access,
@@ -53,7 +56,7 @@ final class ManagePreparations
         return $this->present($product, DishPreparation::with(['ingredients', 'updatedBy'])->where('producto_id', $product->id)->first(), $stationId);
     }
 
-    /** @param list<array{nombre: string, cantidad?: string|null}> $ingredients */
+    /** @param list<array{nombre: string, cantidad?: string|null, unidad?: string|null}> $ingredients */
     public function save(User $user, int $branchId, Product $product, array $ingredients, ?string $procedure, ?string $notes): array
     {
         $stationId = $this->effectiveStation($product);
@@ -72,6 +75,7 @@ final class ManagePreparations
                 $preparation->ingredients()->create([
                     'nombre' => trim($ingredient['nombre']),
                     'cantidad' => $this->blankToNull(Arr::get($ingredient, 'cantidad')),
+                    'unidad' => $this->blankToNull(Arr::get($ingredient, 'unidad')),
                     'orden' => $order,
                 ]);
             }
@@ -113,6 +117,7 @@ final class ManagePreparations
             'ingredientes' => $preparation?->ingredients->map(fn ($ingredient) => [
                 'nombre' => $ingredient->nombre,
                 'cantidad' => $ingredient->cantidad,
+                'unidad' => $ingredient->unidad,
             ])->values()->all() ?? [],
             'procedimiento' => $preparation?->procedimiento,
             'notas' => $preparation?->notas,

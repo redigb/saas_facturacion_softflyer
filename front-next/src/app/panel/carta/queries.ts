@@ -17,12 +17,14 @@ import {
   type Product,
   type Station,
 } from "@/lib/schemas/carta";
+import { promotionSchema, type Promotion, type PromotionBody } from "@/lib/schemas/promociones";
 
 export const keys = {
   categories: ["categorias"] as const,
   products: ["productos"] as const,
   stations: ["estaciones"] as const,
   groups: ["modificador-grupos"] as const,
+  promotions: ["promociones"] as const,
 };
 
 const productPage = z.object({ data: z.array(productSchema), meta: paginationSchema });
@@ -65,6 +67,13 @@ export function useModifierGroups() {
   return useQuery({
     queryKey: keys.groups,
     queryFn: async () => (await apiRequest("modificador-grupos", dataOf(z.array(modifierGroupSchema)))).data,
+  });
+}
+
+export function usePromotions() {
+  return useQuery({
+    queryKey: keys.promotions,
+    queryFn: async () => (await apiRequest("promociones", dataOf(z.array(promotionSchema)))).data,
   });
 }
 
@@ -227,6 +236,35 @@ export function useDeleteModifierGroup() {
     mutationFn: (id: number) => apiCommand(`modificador-grupos/${id}`, { method: "DELETE" }),
     onSuccess: (_, id) => {
       queryClient.setQueryData<ModifierGroup[]>(keys.groups, (current = []) => current.filter((group) => group.id !== id));
+      refreshMenu(queryClient);
+    },
+  });
+}
+
+export function useSavePromotion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: number; body: PromotionBody }) =>
+      apiRequest(id ? `promociones/${id}` : "promociones", dataOf(promotionSchema), { method: id ? "PATCH" : "POST", body }),
+    onSuccess: ({ data }) => {
+      queryClient.setQueryData<Promotion[]>(keys.promotions, (current = []) =>
+        current.some((promotion) => promotion.id === data.id)
+          ? current.map((promotion) => (promotion.id === data.id ? data : promotion))
+          : [data, ...current],
+      );
+      refreshMenu(queryClient);
+    },
+  });
+}
+
+export function useDeletePromotion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => apiCommand(`promociones/${id}`, { method: "DELETE" }),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<Promotion[]>(keys.promotions, (current = []) => current.filter((promotion) => promotion.id !== id));
       refreshMenu(queryClient);
     },
   });

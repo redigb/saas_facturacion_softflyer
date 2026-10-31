@@ -21,6 +21,7 @@ class OrderItem extends BaseModel
         return [
             'cantidad' => 'decimal:3',
             'precio_unitario' => 'decimal:2',
+            'descuento' => 'decimal:2',
             'anulado_en' => 'datetime',
         ];
     }

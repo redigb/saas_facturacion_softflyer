@@ -115,6 +115,10 @@ PENDIENTE → EN_PREPARACION → LISTO → ENTREGADO
 ```
 Este es el estado que consume el KDS (sección 5); es independiente del estado del pedido porque la cocina necesita granularidad por plato, no por mesa.
 
+### 4.4 Precio congelado y promociones
+
+Al enviar un plato, `detalle_pedidos.precio_unitario` toma el precio efectivo del momento: el de lista o el **promocional** si hay una promo vigente (spec 039). El descuento queda en `detalle_pedidos.descuento` y el nombre en `promocion_nombre`. Cambiar la carta o una promoción después no altera lo ya pedido ni lo ya cobrado; al cobrar, el descuento se copia a `detalle_ventas.descuento`. Las promociones se aplican solas dentro de su rango de fechas, días y horario, y el alcance directo a un plato gana sobre la promoción de su categoría.
+
 ---
 
 ## 5. Cocina (KDS) y estrategia de tiempo real

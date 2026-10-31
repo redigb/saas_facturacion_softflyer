@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Tenancy\Infrastructure\TenancyServiceProvider;
+use App\Modules\Assistant\Infrastructure\AssistantServiceProvider;
 use App\Modules\Restaurant\Infrastructure\RestaurantServiceProvider;
 use App\Providers\AppServiceProvider;
 use App\Shared\Infrastructure\ContextServiceProvider;
@@ -10,4 +11,5 @@ return [
     ContextServiceProvider::class,
     TenancyServiceProvider::class,
     RestaurantServiceProvider::class,
+    AssistantServiceProvider::class,
 ];

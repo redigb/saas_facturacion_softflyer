@@ -17,7 +17,7 @@ Base `/api/v1`, subdominio del inquilino, `Authorization: Bearer`.
   "data": {
     "producto": { "id": 12, "nombre": "Lomo saltado", "tipo": "PLATO", "imagen_url": null },
     "estacion": { "id": 3, "nombre": "Cocina" },
-    "ingredientes": [{ "nombre": "Lomo", "cantidad": "250 g" }],
+    "ingredientes": [{ "nombre": "Lomo", "cantidad": "8", "unidad": "ONZ" }],
     "procedimiento": "Sellar el lomo...",
     "notas": "Usar wok bien caliente.",
     "actualizado_por": "Rosa Quispe",
@@ -26,7 +26,7 @@ Base `/api/v1`, subdominio del inquilino, `Authorization: Bearer`.
 }
 ```
 
-`PUT` recibe `ingredientes` (máximo 50), `procedimiento` y `notas`. Cada ingrediente recibe `nombre` obligatorio y `cantidad` opcional.
+`PUT` recibe `ingredientes` (máximo 50), `procedimiento` y `notas`. Cada ingrediente recibe `nombre` obligatorio, `cantidad` opcional y `unidad` opcional (`ONZ`, `ML`, `GR`, `KG`; spec 038).
 
 ## Decisiones
 

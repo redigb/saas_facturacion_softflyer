@@ -29,6 +29,8 @@ const PATHS = {
   plato: "M3 18h18M4 18a8 8 0 0 1 16 0M12 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
   bebida: "M8 21h8M12 17v4M5 4h14l-2 9a4 4 0 0 1-4 3h-2a4 4 0 0 1-4-3L5 4Z",
   ubicacion: "M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Zm-8 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+  analitica: "M4 20V10M10 20V4M16 20v-7M22 20H2",
+  asistente: "M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3ZM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z",
 } as const;
 
 export type IconName = keyof typeof PATHS;

@@ -7,6 +7,7 @@ use App\Core\Inventory\Infrastructure\Persistence\Product;
 use App\Modules\Restaurant\Infrastructure\Persistence\MenuAssignments;
 use App\Modules\Restaurant\Infrastructure\Persistence\ModifierGroup;
 use App\Modules\Restaurant\Infrastructure\Persistence\PreparationStation;
+use App\Modules\Restaurant\Infrastructure\Persistence\Promotion;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -15,7 +16,10 @@ use Illuminate\Support\Facades\Storage;
  */
 final class GetMenu
 {
-    public function __construct(private readonly MenuAssignments $assignments) {}
+    public function __construct(
+        private readonly MenuAssignments $assignments,
+        private readonly PromotionPricing $pricing,
+    ) {}
 
     public function handle(): array
     {
@@ -29,6 +33,8 @@ final class GetMenu
         $categoryStations = $this->assignments->categoryStations();
         $productStations = $this->assignments->productStations();
         $productGroups = $this->assignments->productGroups();
+        // Spec 039: el mozo ve y cobra el precio promocional vigente.
+        $promotions = $this->pricing->forProducts($products);
 
         $groups = ModifierGroup::with(['modifiers' => fn ($query) => $query->where('es_activo', true)])->orderBy('nombre')->get();
 
@@ -48,6 +54,9 @@ final class GetMenu
                 'descripcion' => $product->descripcion,
                 'imagen_url' => $product->imagen_ruta ? Storage::disk('public')->url($product->imagen_ruta) : null,
                 'precio_venta' => $product->precio_venta,
+                'precio_promocional' => $promotions[$product->id]['precio'] ?? null,
+                'descuento' => $promotions[$product->id]['descuento'] ?? '0.00',
+                'promocion' => $promotions[$product->id]['promocion'] ?? null,
                 'tipo' => $product->tipo,
                 'categoria_id' => $product->categoria_id,
                 'estacion_efectiva_id' => $productStations[$product->id] ?? $categoryStations[$product->categoria_id] ?? null,
@@ -76,6 +85,7 @@ final class GetMenu
             Product::withTrashed()->max('actualizado_en'),
             ModifierGroup::max('actualizado_en'),
             PreparationStation::max('actualizado_en'),
+            Promotion::max('actualizado_en'),
         ])->filter()->max();
 
         return $latest === null ? null : now()->parse($latest)->utc()->format('Y-m-d\TH:i:s\Z');

@@ -74,9 +74,9 @@ final class ManageCashSessions
         }
     }
 
-    public function addMovement(User $user, CashSession $session, string $type, string $amount, string $concept, ?string $category = null): CashMovement
+    public function addMovement(User $user, CashSession $session, string $type, string $amount, string $concept, ?string $category = null, ?int $methodId = null): CashMovement
     {
-        return DB::transaction(function () use ($user, $session, $type, $amount, $concept, $category) {
+        return DB::transaction(function () use ($user, $session, $type, $amount, $concept, $category, $methodId) {
             $this->lockOwnOpen($user, $session);
 
             return CashMovement::create([
@@ -85,6 +85,8 @@ final class ManageCashSessions
                 'monto' => $amount,
                 'concepto' => trim($concept),
                 'categoria' => $category,
+                // Spec 038: solo los gastos aceptan método digital; el resto mueve efectivo.
+                'metodo_pago_id' => $this->methodId($type === CashMovement::EXPENSE ? $methodId : null),
                 'usuario_id' => $user->id,
             ]);
         });
@@ -120,7 +122,7 @@ final class ManageCashSessions
             ->where('metodos_pago.es_efectivo', true)
             ->sum('pagos.monto'));
 
-        return Money::cents($session->monto_apertura) + $cash + $this->movementTotal($session, CashMovement::INCOME) - $this->movementTotal($session, CashMovement::EXPENSE);
+        return Money::cents($session->monto_apertura) + $cash + $this->cashMovementTotal($session, CashMovement::INCOME) - $this->cashMovementTotal($session, CashMovement::EXPENSE);
     }
 
     /** @return array<string, mixed> */
@@ -163,6 +165,9 @@ final class ManageCashSessions
             ])->all(),
             'ingresos' => Money::format($this->movementTotal($session, CashMovement::INCOME)),
             'egresos' => Money::format($this->movementTotal($session, CashMovement::EXPENSE)),
+            // Spec 038: un gasto digital no reduce el efectivo del arqueo.
+            'egresos_efectivo' => Money::format($this->cashMovementTotal($session, CashMovement::EXPENSE)),
+            'egresos_digital' => Money::format($this->movementTotal($session, CashMovement::EXPENSE) - $this->cashMovementTotal($session, CashMovement::EXPENSE)),
             'efectivo_esperado' => Money::format($this->expectedCash($session)),
             'ordenes' => $this->paidOrders($session),
         ];
@@ -205,6 +210,37 @@ final class ManageCashSessions
         return Money::cents(CashMovement::where('sesion_caja_id', $session->id)->where('tipo', $type)->sum('monto'));
     }
 
+    /** Solo los movimientos que mueven efectivo (método nulo o es_efectivo). */
+    private function cashMovementTotal(CashSession $session, string $type): int
+    {
+        return Money::cents(
+            DB::table('movimientos_caja')
+                ->leftJoin('metodos_pago', 'metodos_pago.id', '=', 'movimientos_caja.metodo_pago_id')
+                ->where('movimientos_caja.sesion_caja_id', $session->id)
+                ->where('movimientos_caja.tipo', $type)
+                ->where(fn ($query) => $query->whereNull('movimientos_caja.metodo_pago_id')->orWhere('metodos_pago.es_efectivo', true))
+                ->sum('movimientos_caja.monto')
+        );
+    }
+
+    /** Id del método pedido (o efectivo si no se indicó uno). */
+    private function methodId(?int $methodId): int
+    {
+        $method = $methodId !== null
+            ? DB::table('metodos_pago')->where('id', $methodId)->where('es_activo', true)->first()
+            : null;
+
+        if ($methodId !== null && $method === null) {
+            throw new BusinessException('METODO_PAGO_INVALIDO', 'El método de pago elegido no está disponible.', 422);
+        }
+
+        if ($method !== null) {
+            return (int) $method->id;
+        }
+
+        return (int) DB::table('metodos_pago')->where('codigo', 'EFECTIVO')->value('id');
+    }
+
     /** @return list<array<string, mixed>> */
     private function paidOrders(CashSession $session): array
     {
@@ -220,13 +256,23 @@ final class ManageCashSessions
             ->leftJoin('detalle_pedidos as dp', 'dp.id', '=', 'vdp.detalle_pedido_id')
             ->leftJoin('pedidos as p', 'p.id', '=', 'dp.pedido_id')
             ->leftJoin('mesas as m', 'm.id', '=', 'p.mesa_id')
+            ->leftJoin('mesas as mr', 'mr.id', '=', 'p.mesa_referencia_id')
             ->leftJoin('usuarios as u', 'u.id', '=', 'v.usuario_id')
             ->leftJoin('comprobantes as c', 'c.venta_id', '=', 'v.id')
             ->where('v.sesion_caja_id', $session->id)
             ->where('v.estado', 'EMITIDA')
-            ->groupBy('v.id', 'p.id', 'p.numero', 'p.tipo', 'm.codigo', 'u.nombre', 'c.cliente_nombre', 'v.total', 'v.creado_en')
+            // Spec 038: una venta puede cubrir la mesa y sus "para llevar"; se muestra como una sola fila.
+            ->groupBy('v.id', 'u.nombre', 'c.cliente_nombre', 'v.total', 'v.creado_en')
             ->orderByDesc('v.creado_en')
-            ->selectRaw('v.id as venta_id, p.id as pedido_id, p.numero, p.tipo, m.codigo as mesa, u.nombre as cobrado_por, c.cliente_nombre, v.total, v.creado_en, COALESCE(SUM(dp.cantidad), 0) as items')
+            ->selectRaw("v.id as venta_id, MIN(p.id) as pedido_id,
+                COALESCE(MAX(CASE WHEN p.tipo = 'SALON' THEN p.numero END), MIN(p.numero)) as numero,
+                CASE
+                    WHEN COUNT(DISTINCT CASE WHEN p.tipo = 'SALON' THEN p.id END) > 0 THEN 'SALON'
+                    WHEN COUNT(p.id) > 0 THEN 'PARA_LLEVAR'
+                END as tipo,
+                MAX(m.codigo) as mesa, MAX(mr.codigo) as mesa_referencia,
+                u.nombre as cobrado_por, c.cliente_nombre, v.total, v.creado_en,
+                COALESCE(SUM(dp.cantidad), 0) as items")
             ->get()
             ->map(fn ($row) => [
                 'venta_id' => (int) $row->venta_id,
@@ -234,6 +280,7 @@ final class ManageCashSessions
                 'numero' => $row->numero !== null ? (int) $row->numero : null,
                 'tipo' => $row->tipo,
                 'mesa' => $row->mesa,
+                'mesa_referencia' => $row->mesa_referencia,
                 'cliente' => $row->cliente_nombre,
                 'items' => (int) $row->items,
                 'metodos_pago' => $methods->get($row->venta_id, collect())->pluck('nombre')->unique()->values()->all(),

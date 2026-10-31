@@ -4,6 +4,7 @@ import { createContext, useContext, useState } from "react";
 
 import { MenuTab } from "@/app/panel/carta/menu-tab";
 import { ModifiersTab } from "@/app/panel/carta/modifiers-tab";
+import { PromotionsTab } from "@/app/panel/carta/promotions-tab";
 import { StationsTab } from "@/app/panel/carta/stations-tab";
 
 import { Icon, type IconName } from "@/components/icons";
@@ -17,10 +18,11 @@ export function usePermissions() {
   return useContext(PermissionsContext);
 }
 
-const TABS: { id: "carta" | "estaciones" | "modificadores"; label: string; icon: IconName }[] = [
+const TABS: { id: "carta" | "estaciones" | "modificadores" | "promociones"; label: string; icon: IconName }[] = [
   { id: "carta", label: "Platos y categorías", icon: "carta" },
   { id: "estaciones", label: "Estaciones", icon: "cocina" },
   { id: "modificadores", label: "Modificadores", icon: "configuracion" },
+  { id: "promociones", label: "Promociones", icon: "rayo" },
 ];
 
 type TabId = (typeof TABS)[number]["id"];
@@ -69,6 +71,7 @@ export function MenuEditor({ can }: { can: Permissions }) {
         {tab === "carta" && <MenuTab />}
         {tab === "estaciones" && <StationsTab />}
         {tab === "modificadores" && <ModifiersTab />}
+        {tab === "promociones" && <PromotionsTab />}
       </div>
     </PermissionsContext.Provider>
   );

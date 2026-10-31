@@ -31,22 +31,30 @@ final class ManageOrders
     public function __construct(
         private readonly TenantContext $context,
         private readonly MenuAssignments $assignments,
+        private readonly PromotionPricing $pricing,
     ) {}
 
     public function open(User $waiter, array $data): Order
     {
         $table = null;
+        $reference = null;
         if ($data['tipo'] === 'SALON') {
             $table = DiningTable::where('es_activa', true)->findOrFail($data['mesa_id']);
             $branchId = (int) DB::table('salones')->where('id', $table->salon_id)->value('sucursal_id');
         } else {
-            $branchId = $data['sucursal_id'] ?? $waiter->branches()->first()?->id;
+            // Spec 038: el para llevar puede pertenecer a una mesa; se cobra en su boleta.
+            if (isset($data['mesa_referencia_id'])) {
+                $reference = DiningTable::where('es_activa', true)->findOrFail($data['mesa_referencia_id']);
+                $branchId = (int) DB::table('salones')->where('id', $reference->salon_id)->value('sucursal_id');
+            } else {
+                $branchId = $data['sucursal_id'] ?? $waiter->branches()->first()?->id;
+            }
         }
 
         $this->ensureWorksAt($waiter, $branchId);
 
         try {
-            return DB::transaction(function () use ($waiter, $data, $table, $branchId) {
+            return DB::transaction(function () use ($waiter, $data, $table, $reference, $branchId) {
                 if ($table !== null) {
                     $table = DiningTable::whereKey($table->id)->lockForUpdate()->first();
                     if ($table->estado !== DiningTable::FREE) {
@@ -65,6 +73,7 @@ final class ManageOrders
                     'fecha_operacion' => $today,
                     'tipo' => $data['tipo'],
                     'mesa_id' => $table?->id,
+                    'mesa_referencia_id' => $reference?->id,
                     'mozo_id' => $waiter->id,
                     'numero_comensales' => $data['numero_comensales'] ?? null,
                     'estado' => Order::OPEN,
@@ -135,7 +144,9 @@ final class ManageOrders
                         'comanda_id' => $ticket->id,
                         'producto_id' => $line['producto']->id,
                         'cantidad' => $line['cantidad'],
-                        'precio_unitario' => $line['producto']->precio_venta,
+                        'precio_unitario' => $line['precio'],
+                        'descuento' => $line['descuento'],
+                        'promocion_nombre' => $line['promocion_nombre'],
                         'notas' => $line['notas'],
                     ]);
 
@@ -263,11 +274,13 @@ final class ManageOrders
     /**
      * Valida productos y modificadores contra la carta vigente y resuelve la estación.
      *
-     * @return list<array{producto: Product, cantidad: string, notas: ?string, modificadores: list<Modifier>, estacion_id: ?int}>
+     * @return list<array{producto: Product, precio: string, descuento: string, promocion_nombre: ?string, cantidad: string, notas: ?string, modificadores: list<Modifier>, estacion_id: ?int}>
      */
     private function resolveItems(array $items): array
     {
         $products = Product::whereIn('id', array_column($items, 'producto_id'))->get()->keyBy('id');
+        // Spec 039: el precio promocional se congela al enviar el pedido.
+        $prices = $this->pricing->forProducts($products->values());
         $productStations = $this->assignments->productStations($products->modelKeys());
         $categoryStations = $this->assignments->categoryStations($products->pluck('categoria_id')->filter()->unique()->values()->all());
         $productGroups = $this->assignments->productGroups($products->modelKeys());
@@ -305,8 +318,14 @@ final class ManageOrders
                 $errors["items.{$index}.modificador_ids"] ??= ["{$product->nombre}: hay opciones que no corresponden a este plato o ya no están disponibles."];
             }
 
+            $pricing = $prices[$product->id] ?? null;
+            $quantity = (float) $item['cantidad'];
+
             $lines[] = [
                 'producto' => $product,
+                'precio' => $pricing['precio'] ?? $product->precio_venta,
+                'descuento' => $pricing === null ? '0.00' : number_format(round((float) $pricing['descuento'] * $quantity, 2), 2, '.', ''),
+                'promocion_nombre' => $pricing['promocion']['nombre'] ?? null,
                 'cantidad' => (string) $item['cantidad'],
                 'notas' => isset($item['notas']) && trim((string) $item['notas']) !== '' ? trim((string) $item['notas']) : null,
                 'modificadores' => $modifiers,

@@ -70,7 +70,7 @@ Así PostgreSQL garantiza que el hijo y el padre pertenecen al mismo inquilino.
 | B | SaaS | `inquilinos` ✅, `planes`, `suscripciones`, `uso_inquilino` | Parcial* | `Core/Tenancy` |
 | C | Organización | `empresas`, `sucursales`, `certificados_digitales`, `series_comprobante` | Sí | `Core/Tenancy`, `Core/Billing` |
 | D | IAM | `usuarios` ✅, `roles`, `permisos`, `rol_usuario`, `permiso_rol` | Sí** | `Core/Iam` |
-| E | Carta | `categorias`, `productos`, `estaciones_preparacion`, `modificador_grupos`, `modificadores`, `producto_modificador_grupo` | Sí | `Core/Inventory`, `Modules/Restaurant` |
+| E | Carta | `categorias`, `productos`, `estaciones_preparacion`, `modificador_grupos`, `modificadores`, `producto_modificador_grupo`, `promociones` | Sí | `Core/Inventory`, `Modules/Restaurant` |
 | F | Inventario y compras | `almacenes`, `existencias`, `movimientos_inventario`, `recetas`, `proveedores`, `compras`, `detalle_compras` | Sí | `Core/Inventory`, `Modules/Restaurant` |
 | G | Salón y plano | `salones`, `mesas`, `elementos_plano` | Sí | `Modules/Restaurant` |
 | H | Pedidos | `pedidos`, `pedido_mesa`, `comandas`, `detalle_pedidos`, `detalle_pedido_modificador` | Sí | `Modules/Restaurant` |
@@ -199,6 +199,12 @@ Un solo catálogo para lo que se vende y lo que se compra.
 - `modificadores`: `inquilino_id`, `modificador_grupo_id`, `nombre`, `precio_adicional` NUMERIC(12,2) default 0, `es_activo`.
 - `producto_modificador_grupo`: PK `(producto_id, modificador_grupo_id)`, `orden`.
 
+### Promociones de precio (spec 039)
+
+`promociones` (RLS): `nombre`, `descripcion`, `tipo` (`PORCENTAJE` | `PRECIO_FIJO`), `valor` NUMERIC(12,2), `desde`/`hasta` timestamptz, `dias_semana` JSON con ISO 1–7 (vacío = todos), `hora_inicio`/`hora_fin` TIME opcionales, `prioridad` SMALLINT y `es_activa`. La vigencia se evalúa en `America/Lima`.
+
+Pivotes con RLS: `promocion_producto` y `promocion_categoria` (un plato o una categoría puede estar en varias promos; la prioridad y el alcance directo al plato resuelven el empate). El precio promocional se **congela** en `detalle_pedidos.precio_unitario` al enviar el pedido; cambiar o borrar la promo después no altera lo ya pedido ni lo ya cobrado.
+
 ---
 
 ## 6. Inventario, recetas y compras (bloque F)
@@ -207,7 +213,7 @@ Un solo catálogo para lo que se vende y lo que se compra.
 
 ### Fichas de preparación operativa
 
-Antes del inventario cuantificado, cada plato o bebida puede tener una ficha consultable por Cocina, Barra y administradores: `fichas_preparacion` (`producto_id`, `procedimiento`, `notas`, `actualizado_por`) e `ingredientes_preparacion` (`ficha_preparacion_id`, `nombre`, `cantidad`, `orden`). Son instrucciones operativas; no mueven existencias. El acceso del personal se limita a sus estaciones KDS asignadas. La receta de inventario descrita abajo enlaza insumos reales y será la fuente del descuento de stock.
+Antes del inventario cuantificado, cada plato o bebida puede tener una ficha consultable por Cocina, Barra y administradores: `fichas_preparacion` (`producto_id`, `procedimiento`, `notas`, `actualizado_por`) e `ingredientes_preparacion` (`ficha_preparacion_id`, `nombre`, `cantidad`, `unidad`, `orden`). La `unidad` es un catálogo cerrado (`ONZ`, `ML`, `GR`, `KG`, spec 038). Son instrucciones operativas; no mueven existencias. El acceso del personal se limita a sus estaciones KDS asignadas. La receta de inventario descrita abajo enlaza insumos reales y será la fuente del descuento de stock.
 
 ### `almacenes`
 `inquilino_id`, `sucursal_id`, `estacion_preparacion_id` (nulo para el general), `nombre`, `es_principal`, `es_activo`. Hay un almacén general y uno por estación activa de cada local. El personal operativo solo accede a los almacenes de sus asignaciones KDS; el administrador accede a todos.
@@ -301,6 +307,7 @@ Todo lo que se dibuja pero no recibe pedidos.
 | fecha_operacion | DATE | Día del turno al que pertenece. `UNIQUE (sucursal_id, fecha_operacion, numero)` |
 | tipo | VARCHAR | `SALON`, `PARA_LLEVAR` (CHECK). `DELIVERY` se agrega en Fase 2 |
 | mesa_id | BIGINT null | Mesa principal (Doc. 05 §3.2); nulo si es para llevar |
+| mesa_referencia_id | BIGINT null | Mesa a la que pertenece un `PARA_LLEVAR` para cobrarse en su misma boleta (spec 038). No la ocupa |
 | mozo_id | BIGINT | FK → `usuarios` |
 | cliente_id | BIGINT null | |
 | numero_comensales | SMALLINT null | |
@@ -310,7 +317,7 @@ Todo lo que se dibuja pero no recibe pedidos.
 
 🔧 Simplificación respecto al Doc. 05 §4.2: se quitan `EN_PREPARACION` y `SERVIDO` del estado del pedido. Esos estados ya existen **por plato** en `detalle_pedidos.estado_cocina`; repetirlos en la cabecera es un dato derivado que se desincroniza. El frontend muestra "en preparación" si algún plato lo está.
 
-`CHECK ((tipo = 'SALON') = (mesa_id IS NOT NULL))` — un pedido de salón siempre tiene mesa y uno para llevar nunca.
+`CHECK ((tipo = 'SALON') = (mesa_id IS NOT NULL))` — un pedido de salón siempre tiene mesa y uno para llevar nunca. `CHECK (mesa_referencia_id IS NULL OR tipo = 'PARA_LLEVAR')` — solo un para llevar puede apuntar a una mesa de referencia, sin ocuparla (spec 038).
 
 ### `pedido_mesa` (unión de mesas)
 `inquilino_id`, `pedido_id`, `mesa_id`, `unida_en`, `liberada_en` null.
@@ -334,7 +341,9 @@ Todo lo que se dibuja pero no recibe pedidos.
 | comanda_id | BIGINT null | **Nulo = todavía no se envió a cocina** (la mesera lo puede editar libremente) |
 | producto_id | BIGINT | |
 | cantidad | NUMERIC(10,3) | |
-| precio_unitario | NUMERIC(12,2) | Copia del precio al agregarlo (incluye IGV, sin modificadores) |
+| precio_unitario | NUMERIC(12,2) | Copia del precio al enviar (incluye IGV, sin modificadores; puede ser precio promocional) |
+| descuento | NUMERIC(12,2) | Descuento total de la línea por promoción (spec 039) |
+| promocion_nombre | VARCHAR(80) null | Foto del nombre de la promo aplicada, para auditoría |
 | notas | VARCHAR null | Texto libre |
 | estado_cocina | VARCHAR | `PENDIENTE`, `EN_PREPARACION`, `LISTO`, `ENTREGADO` (CHECK) |
 | anulado_en, anulado_por, motivo_anulacion | null | Un plato ya enviado no se borra: se anula con motivo y queda en auditoría |

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { AssistantBubble } from "@/app/panel/asistente/assistant-bubble";
 import { visibleNavigation } from "@/app/panel/navigation";
 import { RealtimeIndicator } from "@/app/panel/realtime";
 import { UserMenu } from "@/app/panel/user-menu";
@@ -145,6 +146,9 @@ export function PanelShell({ me, children }: { me: Me; children: React.ReactNode
           {children}
         </main>
       </div>
+
+      {/* Asistente como globo flotante en todo el panel (spec 040). */}
+      {me.permisos.includes("reportes.ventas") && pathname !== "/panel/asistente" ? <AssistantBubble /> : null}
     </div>
   );
 }

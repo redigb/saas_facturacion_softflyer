@@ -33,8 +33,8 @@ final class ChargeOrder
     ) {}
 
     /**
-     * @param  array{detalle_ids?: list<int>, version?: int, cliente?: ?array<string, mixed>, pagos: list<array<string, mixed>>}  $data
-     * @return array{sale: \App\Core\Sales\Infrastructure\Persistence\Sale, receipt: Receipt, order: Order, change: string, pending: string}
+     * @param  array{detalle_ids?: list<int>, pedidos_adicionales?: list<int>, version?: int, cliente?: ?array<string, mixed>, pagos: list<array<string, mixed>>}  $data
+     * @return array{sale: \App\Core\Sales\Infrastructure\Persistence\Sale, receipt: Receipt, order: Order, orders: list<array<string, mixed>>, change: string, pending: string}
      */
     public function handle(User $cashier, Order $order, array $data): array
     {
@@ -45,7 +45,7 @@ final class ChargeOrder
         }
 
         return DB::transaction(function () use ($cashier, $order, $data, $session) {
-            // Bloquea el turno (que no se cierre a medio cobro) y el pedido (que no se cobre dos veces).
+            // Bloquea el turno (que no se cierre a medio cobro) y los pedidos (que no se cobren dos veces).
             $session = CashSession::with('register')->whereKey($session->id)->lockForUpdate()->firstOrFail();
             if ($session->estado !== CashSession::OPEN) {
                 throw new BusinessException('SESION_CERRADA', 'Este turno de caja ya está cerrado.');
@@ -59,13 +59,16 @@ final class ChargeOrder
                 throw new BusinessException('CONFLICTO_VERSION', 'El pedido cambió mientras lo cobrabas. Revísalo e inténtalo de nuevo.', 409, ['version' => $order->version]);
             }
 
-            $items = $this->unchargedItems($order);
-            $selected = $this->select($order, $items, $data['detalle_ids'] ?? null);
+            // Spec 038: la mesa puede arrastrar sus "para llevar" a la misma boleta.
+            $orders = [$order, ...$this->companions($order, $data['pedidos_adicionales'] ?? [])];
+            $items = collect($orders)->flatMap(fn (Order $affected) => $this->unchargedItems($affected)->all())->keyBy('id');
+            $selected = $this->select($items, $data['detalle_ids'] ?? null);
 
             $sale = $this->sales->handle($cashier, $session, $order->sucursal_id, $selected->map(fn (OrderItem $item) => [
                 'producto_id' => $item->producto_id,
                 'descripcion' => $item->product?->nombre ?? 'Plato',
                 'cantidad' => (string) $item->cantidad,
+                'descuento' => (string) $item->descuento,
                 'total' => $item->subtotal(),
             ])->all(), $data['pagos']);
 
@@ -78,21 +81,74 @@ final class ChargeOrder
                 'detalle_pedido_id' => $item->id,
             ])->all());
 
-            $remaining = $items->diff($selected);
-            if ($remaining->isEmpty()) {
-                $this->orders->close($order);
-            } else {
-                $order->update(['version' => $order->version + 1]);
+            $results = [];
+            $pending = 0;
+            foreach ($orders as $affected) {
+                $remaining = $items->filter(fn (OrderItem $item) => (int) $item->pedido_id === (int) $affected->id && ! $selected->has($item->id));
+                $amount = (int) $remaining->sum(fn (OrderItem $item) => Money::cents($item->subtotal()));
+                $pending += $amount;
+
+                if ($remaining->isEmpty()) {
+                    $affected = $this->orders->close($affected);
+                } else {
+                    $affected->update(['version' => $affected->version + 1]);
+                }
+
+                $results[] = [
+                    'id' => $affected->id,
+                    'estado' => $affected->estado,
+                    'version' => $affected->version,
+                    'pendiente' => Money::format($amount),
+                ];
             }
 
             return [
                 'sale' => $sale,
                 'receipt' => $receipt,
-                'order' => $order,
+                'order' => Order::whereKey($order->id)->firstOrFail(),
+                'orders' => $results,
                 'change' => Money::format((int) $sale->payments->sum(fn ($payment) => Money::cents($payment->vuelto))),
-                'pending' => Money::format($remaining->sum(fn (OrderItem $item) => Money::cents($item->subtotal()))),
+                'pending' => Money::format($pending),
             ];
         });
+    }
+
+    /**
+     * Pedidos "para llevar" que pertenecen a la misma mesa del principal (spec 038).
+     *
+     * @param  list<int>  $ids
+     * @return list<Order>
+     */
+    private function companions(Order $primary, array $ids): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        $ids = array_values(array_diff($ids, [$primary->id]));
+
+        if ($ids === []) {
+            return [];
+        }
+        if ($primary->tipo !== Order::SALON || $primary->mesa_id === null) {
+            throw new BusinessException('COBRO_GRUPO_INVALIDO', 'Solo la cuenta de una mesa puede incluir pedidos para llevar.', 422);
+        }
+
+        $orders = Order::whereIn('id', $ids)->lockForUpdate()->get()->keyBy('id');
+
+        if ($orders->count() !== count($ids)) {
+            throw ValidationException::withMessages(['pedidos_adicionales' => ['Alguno de esos pedidos ya no existe.']]);
+        }
+
+        foreach ($orders as $companion) {
+            if ((int) $companion->sucursal_id !== (int) $primary->sucursal_id
+                || $companion->tipo !== Order::TAKEAWAY
+                || (int) $companion->mesa_referencia_id !== (int) $primary->mesa_id) {
+                throw new BusinessException('COBRO_GRUPO_INVALIDO', 'Ese pedido para llevar no pertenece a la mesa que estás cobrando.', 422);
+            }
+            if (! in_array($companion->estado, Order::ACTIVE, true)) {
+                throw new BusinessException('PEDIDO_NO_COBRABLE', 'Uno de los pedidos para llevar ya está cerrado o anulado.', 422);
+            }
+        }
+
+        return $orders->values()->all();
     }
 
     /** Platos vigentes del pedido que ninguna venta cubrió, por id. */
@@ -113,7 +169,7 @@ final class ChargeOrder
     }
 
     /** @param  list<int>|null  $ids  Nulo = toda la cuenta pendiente. */
-    private function select(Order $order, \Illuminate\Support\Collection $items, ?array $ids): \Illuminate\Support\Collection
+    private function select(\Illuminate\Support\Collection $items, ?array $ids): \Illuminate\Support\Collection
     {
         if ($items->isEmpty()) {
             throw new BusinessException('PEDIDO_NO_COBRABLE', 'Este pedido no tiene platos por cobrar.');

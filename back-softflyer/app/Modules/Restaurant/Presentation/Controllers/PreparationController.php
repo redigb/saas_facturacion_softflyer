@@ -45,6 +45,7 @@ final class PreparationController
             'ingredientes' => ['required', 'array', 'max:50'],
             'ingredientes.*.nombre' => ['required', 'string', 'max:120'],
             'ingredientes.*.cantidad' => ['sometimes', 'nullable', 'string', 'max:60'],
+            'ingredientes.*.unidad' => ['sometimes', 'nullable', 'string', 'max:8', Rule::in(ManagePreparations::UNIDADES)],
             'procedimiento' => ['sometimes', 'nullable', 'string', 'max:10000'],
             'notas' => ['sometimes', 'nullable', 'string', 'max:5000'],
         ], [

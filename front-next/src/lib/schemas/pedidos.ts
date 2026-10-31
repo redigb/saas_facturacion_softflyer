@@ -14,6 +14,10 @@ export const menuSchema = z.object({
       descripcion: z.string().nullable(),
       imagen_url: z.string().nullable(),
       precio_venta: decimal,
+      /** Precio con promoción vigente (spec 039); null cuando no aplica ninguna. */
+      precio_promocional: decimal.nullable(),
+      descuento: decimal,
+      promocion: z.object({ id: z.number(), nombre: z.string(), tipo: z.enum(["PORCENTAJE", "PRECIO_FIJO"]), valor: decimal }).nullable(),
       tipo: z.enum(["PLATO", "BEBIDA"]),
       categoria_id: z.number().nullable(),
       estacion_efectiva_id: z.number().nullable(),
@@ -40,6 +44,8 @@ const orderHeader = {
   version: z.number(),
   sucursal_id: z.number(),
   mesa: z.object({ id: z.number(), codigo: z.string(), salon_id: z.number() }).nullable(),
+  /** Mesa de referencia de un "para llevar" (spec 038). */
+  mesa_referencia: z.object({ id: z.number(), codigo: z.string(), salon_id: z.number() }).nullable(),
   mozo: z.object({ id: z.number(), nombre: z.string() }).nullable(),
   numero_comensales: z.number().nullable(),
   abierto_en: z.string(),
@@ -49,24 +55,41 @@ const orderHeader = {
 
 export const kitchenStates = ["PENDIENTE", "EN_PREPARACION", "LISTO", "ENTREGADO"] as const;
 
+const orderItemSchema = z.object({
+  id: z.number(),
+  producto_id: z.number(),
+  nombre: z.string().nullable(),
+  cantidad: z.string(),
+  precio_unitario: decimal,
+  /** Descuento total de la línea por promoción (spec 039). */
+  descuento: decimal,
+  promocion: z.string().nullable(),
+  notas: z.string().nullable(),
+  estado_cocina: z.enum(kitchenStates),
+  cobrado: z.boolean(),
+  comanda: z.object({ id: z.number(), numero: z.number(), estacion_preparacion_id: z.number().nullable(), enviada_en: z.string().nullable() }).nullable(),
+  modificadores: z.array(z.object({ id: z.number(), nombre: z.string(), precio_adicional: decimal })),
+  subtotal: decimal,
+  anulado: z.object({ en: z.string(), por: z.string().nullable(), motivo: z.string().nullable() }).nullable(),
+});
+
+const orderDetailsSchema = z.array(orderItemSchema);
+
 export const orderSchema = z.object({
   ...orderHeader,
   /** Lo que falta cobrar (spec 009): con cuenta dividida es menor que `total`. */
   pendiente: decimal,
-  detalles: z.array(
+  detalles: orderDetailsSchema,
+  /** "Para llevar" de la misma mesa que se cobran en esta boleta (spec 038). */
+  acompanantes: z.array(
     z.object({
       id: z.number(),
-      producto_id: z.number(),
-      nombre: z.string().nullable(),
-      cantidad: z.string(),
-      precio_unitario: decimal,
-      notas: z.string().nullable(),
-      estado_cocina: z.enum(kitchenStates),
-      cobrado: z.boolean(),
-      comanda: z.object({ id: z.number(), numero: z.number(), estacion_preparacion_id: z.number().nullable(), enviada_en: z.string().nullable() }).nullable(),
-      modificadores: z.array(z.object({ id: z.number(), nombre: z.string(), precio_adicional: decimal })),
-      subtotal: decimal,
-      anulado: z.object({ en: z.string(), por: z.string().nullable(), motivo: z.string().nullable() }).nullable(),
+      numero: z.number(),
+      estado: z.enum(["ABIERTO", "POR_COBRAR", "CERRADO", "ANULADO"]),
+      version: z.number(),
+      total: decimal,
+      pendiente: decimal,
+      detalles: orderDetailsSchema,
     }),
   ),
 });

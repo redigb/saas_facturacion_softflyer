@@ -91,7 +91,19 @@ export function MenuPicker({ menu, disabled, onAdd }: Props) {
                       <span className="mt-0.5 line-clamp-2 block text-[11px] leading-snug text-slate-500">{product.descripcion}</span>
                     )}
                   </span>
-                  <span className="mt-2 block text-sm font-bold text-azul tabular-nums">S/ {product.precio_venta}</span>
+                  <span className="mt-2 block">
+                    {product.precio_promocional ? (
+                      <span className="flex items-baseline gap-1.5">
+                        <span className="text-sm font-bold text-azul tabular-nums">S/ {product.precio_promocional}</span>
+                        <span className="text-[11px] text-slate-400 line-through tabular-nums">S/ {product.precio_venta}</span>
+                      </span>
+                    ) : (
+                      <span className="text-sm font-bold text-azul tabular-nums">S/ {product.precio_venta}</span>
+                    )}
+                    {product.promocion ? (
+                      <span className="mt-1 block truncate rounded-md bg-amarillo/30 px-1.5 py-0.5 text-[10px] font-bold text-tinta">{product.promocion.nombre}</span>
+                    ) : null}
+                  </span>
                 </button>
 
                 {/* La lupa es hermana de la tarjeta: su toque no agrega al carrito (spec 026). */}
@@ -152,7 +164,10 @@ function PhotoModal({ product, onClose }: { product: MenuProduct; onClose: () =>
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0">
             <h2 className="truncate text-xl font-bold text-tinta">{product.nombre}</h2>
-            <p className="text-sm font-semibold text-azul tabular-nums">S/ {product.precio_venta}</p>
+            <p className="text-sm font-semibold text-azul tabular-nums">
+              S/ {product.precio_promocional ?? product.precio_venta}
+              {product.precio_promocional ? <span className="ml-2 text-xs text-slate-400 line-through">S/ {product.precio_venta}</span> : null}
+            </p>
             {product.descripcion && <p className="mt-1 line-clamp-2 text-sm text-slate-500">{product.descripcion}</p>}
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Cerrar">
@@ -176,6 +191,8 @@ function ModifierSheet({ product, menu, onClose, onAdd }: { product: MenuProduct
 
   const missing = groups.filter((group) => group.modificadores.filter((option) => chosen.includes(option.id)).length < group.seleccion_minima);
   const extras = groups.flatMap((group) => group.modificadores).filter((option) => chosen.includes(option.id)).reduce((sum, option) => sum + Number(option.precio_adicional), 0);
+  // Spec 039: la hoja de opciones cobra el precio promocional vigente.
+  const basePrice = Number(product.precio_promocional ?? product.precio_venta);
 
   function toggle(groupId: number, optionId: number) {
     const group = groups.find((candidate) => candidate.id === groupId)!;
@@ -196,7 +213,11 @@ function ModifierSheet({ product, menu, onClose, onAdd }: { product: MenuProduct
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
             <h2 className="text-lg font-bold text-tinta">{product.nombre}</h2>
-            <p className="text-sm font-semibold text-azul tabular-nums">S/ {product.precio_venta}</p>
+            <p className="text-sm font-semibold text-azul tabular-nums">
+              S/ {product.precio_promocional ?? product.precio_venta}
+              {product.precio_promocional ? <span className="ml-2 text-xs text-slate-400 line-through">S/ {product.precio_venta}</span> : null}
+            </p>
+            {product.promocion ? <span className="mt-1 inline-block rounded-md bg-amarillo/30 px-1.5 py-0.5 text-[10px] font-bold text-tinta">{product.promocion.nombre}</span> : null}
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Cerrar">
             <Icon name="cerrar" className="h-5 w-5" />
@@ -248,7 +269,7 @@ function ModifierSheet({ product, menu, onClose, onAdd }: { product: MenuProduct
             disabled={missing.length > 0}
             onClick={() => onAdd({ producto_id: product.id, cantidad: quantity, notas: notes.trim(), modificador_ids: chosen })}
           >
-            {missing.length > 0 ? `Elige ${missing[0].nombre.toLowerCase()}` : `Agregar · S/ ${((Number(product.precio_venta) + extras) * quantity).toFixed(2)}`}
+            {missing.length > 0 ? `Elige ${missing[0].nombre.toLowerCase()}` : `Agregar · S/ ${((basePrice + extras) * quantity).toFixed(2)}`}
           </Button>
         </div>
       </div>

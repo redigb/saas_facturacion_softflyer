@@ -48,7 +48,16 @@ type Done = { result: ChargeResult; label: string };
 function ChargeForm({ order, methods, sessionId, onClose, presentation }: { order: Order; methods: PaymentMethod[]; sessionId: number; onClose: () => void; presentation: ChargePresentation }) {
   const charge = useChargeOrder(order.id, sessionId);
   const toast = useToast();
-  const items = order.detalles.filter((item) => !item.anulado && !item.cobrado);
+  // Spec 038: la cuenta de la mesa incluye sus "para llevar" en la misma boleta.
+  const groups = [
+    { orderId: order.id, label: order.mesa ? `Mesa ${order.mesa.codigo}` : "Para llevar", items: order.detalles.filter((item) => !item.anulado && !item.cobrado) },
+    ...order.acompanantes.map((companion) => ({
+      orderId: companion.id,
+      label: `Para llevar #${companion.numero}`,
+      items: companion.detalles.filter((item) => !item.anulado && !item.cobrado),
+    })),
+  ].filter((group) => group.items.length > 0);
+  const items = groups.flatMap((group) => group.items);
   const [selected, setSelected] = useState<Set<number>>(() => new Set(items.map((item) => item.id)));
   const [payments, setPayments] = useState<PaymentDraft[]>(() => [blankPayment(methods)]);
   const [done, setDone] = useState<Done | null>(null);
@@ -92,8 +101,10 @@ function ChargeForm({ order, methods, sessionId, onClose, presentation }: { orde
   async function submit() {
     if (!valid || charge.isPending) return;
 
+    const companionIds = groups.slice(1).filter((group) => group.items.some((item) => selected.has(item.id))).map((group) => group.orderId);
     const body = {
       ...(selected.size < items.length ? { detalle_ids: [...selected] } : {}),
+      ...(companionIds.length > 0 ? { pedidos_adicionales: companionIds } : {}),
       version: order.version,
       ...(customerOpen && customer.numero.trim() !== ""
         ? { cliente: { tipo_documento: customer.tipo_documento, numero: customer.numero.trim(), ...(customer.nombre.trim() !== "" ? { nombre: customer.nombre.trim() } : {}) } }
@@ -118,7 +129,7 @@ function ChargeForm({ order, methods, sessionId, onClose, presentation }: { orde
     try {
       const { data } = await charge.mutateAsync({ body, key: attempt.current.key });
       attempt.current = null;
-      setDone({ result: data, label: order.mesa ? `Mesa ${order.mesa.codigo}` : "Para llevar" });
+      setDone({ result: data, label: order.mesa ? `Mesa ${order.mesa.codigo}` : order.mesa_referencia ? `Mesa ${order.mesa_referencia.codigo} (para llevar)` : "Para llevar" });
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 422 && error.detalles) {
         // Datos del cliente inválidos: se muestran junto al campo y nada se cobró.
@@ -145,7 +156,7 @@ function ChargeForm({ order, methods, sessionId, onClose, presentation }: { orde
   return (
     <ChargeFrame
       presentation={presentation}
-      title={`Cobrar ${order.mesa ? `mesa ${order.mesa.codigo}` : "para llevar"} · #${order.numero}`}
+      title={`Cobrar ${order.mesa ? `mesa ${order.mesa.codigo}` : order.mesa_referencia ? `mesa ${order.mesa_referencia.codigo} (para llevar)` : "para llevar"} · #${order.numero}`}
       orderNumber={order.numero}
       total={fromCents(total)}
       onClose={onClose}
@@ -174,43 +185,50 @@ function ChargeForm({ order, methods, sessionId, onClose, presentation }: { orde
               </button>
             ) : null}
           </div>
-          <ul className="space-y-2">
-            {items.map((item) => {
-              const on = selected.has(item.id);
-              return (
-                <li key={item.id}>
-                  <label
-                    className={`flex min-h-[52px] cursor-pointer items-center gap-3 rounded-xl border-2 px-3 py-2 transition-colors ${
-                      on ? "border-azul/40 bg-azul/5" : "border-slate-200 bg-white"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() =>
-                        setSelected((current) => {
-                          const next = new Set(current);
-                          if (next.has(item.id)) next.delete(item.id);
-                          else next.add(item.id);
-                          return next;
-                        })
-                      }
-                      className="h-5 w-5 accent-azul"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold text-tinta">
-                        {Number(item.cantidad)}× {item.nombre ?? "Plato"}
-                      </span>
-                      {item.modificadores.length > 0 ? (
-                        <span className="block truncate text-xs text-slate-500">{item.modificadores.map((modifier) => modifier.nombre).join(", ")}</span>
-                      ) : null}
-                    </span>
-                    <PriceText amount={item.subtotal} size="sm" />
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="space-y-3">
+            {groups.map((group) => (
+              <div key={group.orderId}>
+                {groups.length > 1 ? <p className="mb-1 text-[10px] font-bold tracking-widest text-slate-400 uppercase">{group.label}</p> : null}
+                <ul className="space-y-2">
+                  {group.items.map((item) => {
+                    const on = selected.has(item.id);
+                    return (
+                      <li key={item.id}>
+                        <label
+                          className={`flex min-h-[52px] cursor-pointer items-center gap-3 rounded-xl border-2 px-3 py-2 transition-colors ${
+                            on ? "border-azul/40 bg-azul/5" : "border-slate-200 bg-white"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            onChange={() =>
+                              setSelected((current) => {
+                                const next = new Set(current);
+                                if (next.has(item.id)) next.delete(item.id);
+                                else next.add(item.id);
+                                return next;
+                              })
+                            }
+                            className="h-5 w-5 accent-azul"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-bold text-tinta">
+                              {Number(item.cantidad)}× {item.nombre ?? "Plato"}
+                            </span>
+                            {item.modificadores.length > 0 ? (
+                              <span className="block truncate text-xs text-slate-500">{item.modificadores.map((modifier) => modifier.nombre).join(", ")}</span>
+                            ) : null}
+                          </span>
+                          <PriceText amount={item.subtotal} size="sm" />
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
           {order.detalles.some((item) => item.cobrado) ? <p className="mt-2 text-xs text-slate-500">Otros platos de esta cuenta ya se cobraron.</p> : null}
         </section>
 

@@ -51,7 +51,8 @@ function Board({ station, name, canChangeStation, onChangeStation }: { station: 
   const board = useBoard(station, status === "en-vivo");
   const change = useKitchenChange(station);
   const printTicket = usePrintTicket(station);
-  const now = useNow(15_000);
+  // Cada 5 s: el aviso de demora (15 min) aparece sin esperar hasta 15 s.
+  const now = useNow(5_000);
   const [fresh, setFresh] = useState<Set<number>>(new Set());
   const [printing, setPrinting] = useState<Ticket | null>(null);
   const [sound, setSound] = useStoredSound();
@@ -186,12 +187,16 @@ const ITEM_STYLE = {
   ENTREGADO: { card: "border-slate-200 bg-slate-50 opacity-60", badge: "Entregado" },
 } as const;
 
+/** Una comanda que pasa este umbral se marca en rojo en toda la tarjeta (spec 038). */
+const DEMORA_MIN = 15;
+
 function TicketCard({ ticket, now, fresh, onItem, onAllReady, onPrint }: { ticket: Ticket; now: number; fresh: boolean; onItem: (itemId: number, state: KitchenState) => void; onAllReady: () => void; onPrint: () => void }) {
   const waiting = minutesSince(ticket.enviada_en, now);
-  const urgency = waiting >= 20 ? "bg-red-600 text-white" : waiting >= 10 ? "bg-amarillo text-tinta" : "bg-slate-100 text-slate-600";
+  const delayed = waiting >= DEMORA_MIN;
+  const urgency = delayed ? "bg-red-600 text-white" : waiting >= 10 ? "bg-amarillo text-tinta" : "bg-slate-100 text-slate-600";
 
   return (
-    <li className={`flex flex-col rounded-2xl border-2 bg-white shadow-sm transition-all ${fresh ? "border-celeste ring-4 ring-celeste/40" : "border-slate-200"}`}>
+    <li className={`flex flex-col rounded-2xl border-2 bg-white shadow-sm transition-all ${fresh ? "border-celeste ring-4 ring-celeste/40" : delayed ? "border-red-500 ring-2 ring-red-200" : "border-slate-200"}`}>
       <header className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">

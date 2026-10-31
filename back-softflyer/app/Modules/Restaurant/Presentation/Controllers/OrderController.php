@@ -58,11 +58,14 @@ class OrderController
         $data = $request->validate([
             'tipo' => ['required', Rule::in(['SALON', 'PARA_LLEVAR'])],
             'mesa_id' => ['required_if:tipo,SALON', 'prohibited_if:tipo,PARA_LLEVAR', 'integer', Rule::exists('mesas', 'id')->where('es_activa', true)],
+            'mesa_referencia_id' => ['nullable', 'integer', 'prohibited_if:tipo,SALON', Rule::exists('mesas', 'id')->where('es_activa', true)],
             'sucursal_id' => ['sometimes', 'integer'],
             'numero_comensales' => ['sometimes', 'nullable', 'integer', 'between:1,99'],
         ], [
             'mesa_id.required_if' => 'Elige la mesa.',
             'mesa_id.exists' => 'Esa mesa no existe o fue retirada del plano.',
+            'mesa_referencia_id.exists' => 'La mesa a la que pertenece este para llevar no existe o fue retirada.',
+            'mesa_referencia_id.prohibited_if' => 'Un pedido de mesa no puede llevar mesa de referencia.',
             'numero_comensales.between' => 'Entre 1 y 99 personas.',
         ]);
 

@@ -21,6 +21,10 @@ class Order extends BaseModel
 
     public const CANCELLED = 'ANULADO';
 
+    public const SALON = 'SALON';
+
+    public const TAKEAWAY = 'PARA_LLEVAR';
+
     public const ACTIVE = [self::OPEN, self::BILL_REQUESTED];
 
     protected $table = 'pedidos';
@@ -40,6 +44,12 @@ class Order extends BaseModel
     public function table(): BelongsTo
     {
         return $this->belongsTo(DiningTable::class, 'mesa_id');
+    }
+
+    /** Mesa a la que pertenece un "para llevar" para cobrarse en la misma boleta (spec 038). */
+    public function referenceTable(): BelongsTo
+    {
+        return $this->belongsTo(DiningTable::class, 'mesa_referencia_id');
     }
 
     public function waiter(): BelongsTo

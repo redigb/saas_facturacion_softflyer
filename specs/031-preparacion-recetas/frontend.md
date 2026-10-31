@@ -11,12 +11,12 @@
 1. Elegir una estación autorizada si hay más de una.
 2. Buscar visualmente el plato o bebida.
 3. Abrir su ficha y consultar ingredientes, procedimiento y anotaciones.
-4. Editar en el mismo panel, agregar o quitar ingredientes y guardar.
+4. Editar en el mismo panel, agregar o quitar ingredientes (con su unidad: onza, mililitro, gramo o kilo) y guardar.
 
 ## Experiencia
 
 - Tarjetas grandes por plato, con foto si existe y estado «Completa» o «Por completar».
-- Ingredientes en filas táctiles de nombre y cantidad.
+- Ingredientes en filas táctiles de nombre, cantidad y unidad.
 - Textareas de 16 px para evitar zoom móvil.
 - Estado vacío claro cuando la estación no tiene platos.
 - Guardado con error visible y sin perder lo escrito.

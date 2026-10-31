@@ -16,6 +16,7 @@ La ficha operativa se mantiene separada de la receta cuantificada de inventario:
 - [x] El administrador ve las fichas de todas las estaciones.
 - [x] Cocina y Barra solo ven platos/bebidas de sus estaciones KDS asignadas.
 - [x] La ficha muestra ingredientes, cantidades descriptivas, procedimiento y anotaciones.
+- [x] Cada ingrediente puede indicar su unidad de medida (`ONZ`, `ML`, `GR`, `KG`) — spec 038.
 - [x] El personal autorizado puede crear y actualizar la ficha desde celular o tablet.
 - [x] La pantalla indica quién y cuándo actualizó la preparación.
 - [x] Una persona no puede consultar ni modificar preparaciones de otra estación, incluso llamando directamente a la API.

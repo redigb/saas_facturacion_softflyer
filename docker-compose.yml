@@ -46,6 +46,9 @@ x-api-env: &api-env
   MAIL_PORT: "1025"
   MAIL_FROM_ADDRESS: no-responder@softflyer.local
   MAIL_FROM_NAME: Softflyer
+  # Asistente IA (spec 040): la clave vive solo en la API, nunca en el frontend.
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
 
 services:
   db:

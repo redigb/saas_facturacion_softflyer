@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    // Asistente IA (spec 040). La clave vive solo en el servidor: nunca en Next ni en el navegador.
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
+        // auto: generateContent para 2.x (Flash-Lite) e Interactions para 3.x.
+        'api' => env('GEMINI_API_STYLE', 'auto'),
+        'endpoint' => env('GEMINI_ENDPOINT', 'https://generativelanguage.googleapis.com/v1beta'),
+        // Local con antivirus/proxy que intercepta TLS: ruta a un PEM con las raíces de confianza.
+        'ca_bundle' => env('GEMINI_CA_BUNDLE'),
+        'timeout' => (int) env('GEMINI_TIMEOUT', 20),
+        'max_output_tokens' => 300,
+    ],
+
 ];

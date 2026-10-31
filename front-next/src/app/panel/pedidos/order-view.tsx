@@ -237,6 +237,9 @@ function CartRow({ line, menu, error, locked, onChange, onRemove }: { line: Cart
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className={`font-bold ${error ? "text-red-600" : "text-tinta"}`}>{product?.nombre ?? "Plato ya no disponible"}</p>
+          {product?.promocion ? (
+            <p className="text-xs font-bold text-azul">{product.promocion.nombre} · S/ {product.precio_promocional}</p>
+          ) : null}
           {options.length > 0 && <p className="text-xs text-slate-500">{options.map((option) => option.nombre).join(", ")}</p>}
           {error && <p className="mt-1 text-xs font-semibold text-red-600">{error}</p>}
 
@@ -342,6 +345,7 @@ function SentRow({ order, item, station, canVoid, readOnly }: { order: Order; it
           <p className={`font-semibold text-tinta ${item.anulado ? "line-through" : ""}`}>{item.nombre}</p>
           {item.modificadores.length > 0 && <p className="text-xs text-slate-500">{item.modificadores.map((option) => option.nombre).join(", ")}</p>}
           {item.notas && <p className="text-xs font-semibold text-azul">“{item.notas}”</p>}
+          {item.promocion ? <p className="text-xs font-semibold text-emerald-700">{item.promocion} · ahorro S/ {item.descuento}</p> : null}
           <p className="text-xs text-slate-400">{station ?? "General"} · comanda {item.comanda?.numero}</p>
           {item.anulado && <p className="text-xs font-semibold text-red-600">Anulado por {item.anulado.por}: {item.anulado.motivo}</p>}
         </div>
@@ -438,7 +442,7 @@ function OrderActions({ order }: { order: Order }) {
 
 function cartTotal(lines: CartLine[], menu: Menu): string {
   const options = new Map(menu.modificador_grupos.flatMap((group) => group.modificadores).map((option) => [option.id, Number(option.precio_adicional)]));
-  const prices = new Map(menu.productos.map((product) => [product.id, Number(product.precio_venta)]));
+  const prices = new Map(menu.productos.map((product) => [product.id, Number(product.precio_promocional ?? product.precio_venta)]));
   const total = lines.reduce(
     (sum, line) => sum + line.cantidad * ((prices.get(line.producto_id) ?? 0) + line.modificador_ids.reduce((extra, id) => extra + (options.get(id) ?? 0), 0)),
     0,
@@ -446,9 +450,10 @@ function cartTotal(lines: CartLine[], menu: Menu): string {
   return total.toFixed(2);
 }
 
-/** Subtotal de una línea del carrito: cantidad × (precio + adicionales) — spec 022. */
+/** Subtotal de una línea del carrito: cantidad × (precio promocional o de lista + adicionales) — specs 022 y 039. */
 function lineSubtotal(line: CartLine, menu: Menu): string {
-  const productPrice = Number(menu.productos.find((product) => product.id === line.producto_id)?.precio_venta ?? 0);
+  const product = menu.productos.find((item) => item.id === line.producto_id);
+  const productPrice = Number(product?.precio_promocional ?? product?.precio_venta ?? 0);
   const extras = menu.modificador_grupos
     .flatMap((group) => group.modificadores)
     .filter((option) => line.modificador_ids.includes(option.id))

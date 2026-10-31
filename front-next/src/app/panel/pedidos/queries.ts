@@ -52,7 +52,7 @@ export function useOpenOrder() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: { tipo: "SALON" | "PARA_LLEVAR"; mesa_id?: number; numero_comensales?: number }) =>
+    mutationFn: (body: { tipo: "SALON" | "PARA_LLEVAR"; mesa_id?: number; mesa_referencia_id?: number; numero_comensales?: number }) =>
       apiRequest("pedidos", dataOf(orderSchema), { method: "POST", body, headers: { "Idempotency-Key": crypto.randomUUID() } }),
     onSuccess: ({ data }) => {
       queryClient.setQueryData(keys.order(data.id), data);

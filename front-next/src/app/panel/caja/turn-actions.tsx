@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { useCashHistory, useCashMovement, useCloseCash } from "@/app/panel/caja/queries";
+import { useCashHistory, useCashMovement, useCloseCash, usePaymentMethods } from "@/app/panel/caja/queries";
 import { Drawer } from "@/app/panel/carta/ui";
 import { useToast } from "@/app/panel/providers";
 import { Icon } from "@/components/icons";
@@ -14,6 +14,9 @@ type Panel = "historial" | "gasto" | "ingreso" | "retiro" | "cierre" | null;
 type MovementMode = Exclude<Panel, "historial" | "cierre" | null>;
 
 const EXPENSE_CATEGORIES = ["ABARROTES", "INSUMOS", "SERVICIOS", "SALARIOS", "MANTENIMIENTO", "OTROS"] as const;
+
+/** Métodos con los que se puede pagar un gasto sin tocar el efectivo de la caja (spec 038). */
+const EXPENSE_METHOD_CODES = ["EFECTIVO", "YAPE", "PLIN", "TARJETA_DEBITO", "TARJETA_CREDITO", "TRANSFERENCIA"];
 
 /** Acciones del turno separadas por intención para evitar confundir gasto, retiro e ingreso. */
 export function TurnActions({
@@ -60,18 +63,28 @@ export function TurnActions({
 
 function MovementDrawer({ mode, sessionId, onClose }: { mode: MovementMode; sessionId: number; onClose: () => void }) {
   const movement = useCashMovement(sessionId);
+  const methods = usePaymentMethods();
   const toast = useToast();
   const [amount, setAmount] = useState("");
   const [concept, setConcept] = useState("");
   const [category, setCategory] = useState<string>(mode === "gasto" ? "OTROS" : mode === "retiro" ? "RETIRO" : "INGRESO");
+  const [methodId, setMethodId] = useState<number | "">("");
   const valid = Number(amount) > 0 && concept.trim() !== "";
   const isIncome = mode === "ingreso";
   const title = mode === "gasto" ? "Registrar gasto" : mode === "retiro" ? "Retirar efectivo" : "Ingresar dinero";
+  const methodOptions = (methods.data ?? []).filter((method) => EXPENSE_METHOD_CODES.includes(method.codigo));
+  const effectiveMethodId = methodId !== "" ? methodId : (methodOptions.find((method) => method.es_efectivo)?.id ?? "");
 
   async function submit() {
     if (!valid || movement.isPending) return;
     try {
-      await movement.mutateAsync({ tipo: isIncome ? "INGRESO" : "EGRESO", monto: Number(amount).toFixed(2), concepto: concept.trim(), categoria: category });
+      await movement.mutateAsync({
+        tipo: isIncome ? "INGRESO" : "EGRESO",
+        monto: Number(amount).toFixed(2),
+        concepto: concept.trim(),
+        categoria: category,
+        ...(mode === "gasto" && effectiveMethodId !== "" ? { metodo_pago_id: Number(effectiveMethodId) } : {}),
+      });
       toast({ tone: "ok", message: mode === "gasto" ? "Gasto registrado." : mode === "retiro" ? "Retiro registrado." : "Ingreso registrado." });
       onClose();
     } catch (error) {
@@ -86,12 +99,21 @@ function MovementDrawer({ mode, sessionId, onClose }: { mode: MovementMode; sess
           {mode === "gasto" ? "Registra una compra o gasto operativo del restaurante." : mode === "retiro" ? "Registra el efectivo que sale de la caja y deja el motivo auditado." : "Registra dinero adicional que entra físicamente a la caja."}
         </div>
         {mode === "gasto" ? (
-          <div>
-            <label htmlFor="mov-categoria" className="mb-1.5 block text-sm font-bold text-tinta">Categoría</label>
-            <select id="mov-categoria" value={category} onChange={(event) => setCategory(event.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-base text-tinta focus:border-azul focus:ring-4 focus:ring-azul/10 focus:outline-none">
-              {EXPENSE_CATEGORIES.map((option) => <option key={option} value={option}>{labelCategory(option)}</option>)}
-            </select>
-          </div>
+          <>
+            <div>
+              <label htmlFor="mov-categoria" className="mb-1.5 block text-sm font-bold text-tinta">Categoría</label>
+              <select id="mov-categoria" value={category} onChange={(event) => setCategory(event.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-base text-tinta focus:border-azul focus:ring-4 focus:ring-azul/10 focus:outline-none">
+                {EXPENSE_CATEGORIES.map((option) => <option key={option} value={option}>{labelCategory(option)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="mov-metodo" className="mb-1.5 block text-sm font-bold text-tinta">Método de pago</label>
+              <select id="mov-metodo" value={effectiveMethodId} onChange={(event) => setMethodId(event.target.value === "" ? "" : Number(event.target.value))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-base text-tinta focus:border-azul focus:ring-4 focus:ring-azul/10 focus:outline-none">
+                {methodOptions.length === 0 ? <option value="">Efectivo</option> : methodOptions.map((option) => <option key={option.id} value={option.id}>{option.nombre}</option>)}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">Yape, Plin, tarjetas y transferencias no descuentan del efectivo del arqueo.</p>
+            </div>
+          </>
         ) : null}
         <div><label htmlFor="mov-monto" className="mb-1.5 block text-sm font-bold text-tinta">Monto (S/)</label><Input id="mov-monto" inputMode="decimal" autoFocus placeholder="0.00" value={amount} onChange={(event) => setAmount(event.target.value.replace(",", "."))} className="text-xl font-bold tabular-nums" /></div>
         <div><label htmlFor="mov-concepto" className="mb-1.5 block text-sm font-bold text-tinta">Descripción</label><Input id="mov-concepto" maxLength={120} placeholder={mode === "gasto" ? "Ej. Compra semanal de abarrotes" : mode === "retiro" ? "Ej. Depósito al banco" : "Ej. Fondo adicional para sencillo"} value={concept} onChange={(event) => setConcept(event.target.value)} /></div>

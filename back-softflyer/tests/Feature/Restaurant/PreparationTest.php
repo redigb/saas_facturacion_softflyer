@@ -72,6 +72,24 @@ class PreparationTest extends DatabaseTestCase
         $this->assertSame(2, $this->asTenant(fn () => DB::table('ingredientes_preparacion')->count()));
     }
 
+    public function test_ingredient_units_are_limited_to_the_catalog(): void
+    {
+        $this->as($this->cook, 'PUT', "preparaciones/{$this->ids['lomo']}", [
+            'ingredientes' => [
+                ['nombre' => 'Lomo', 'cantidad' => '8', 'unidad' => 'ONZ'],
+                ['nombre' => 'Cebolla roja', 'cantidad' => '2', 'unidad' => 'KG'],
+            ],
+            'procedimiento' => 'Sellar el lomo.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.ingredientes.0.unidad', 'ONZ')
+            ->assertJsonPath('data.ingredientes.1.unidad', 'KG');
+
+        $this->as($this->cook, 'PUT', "preparaciones/{$this->ids['lomo']}", [
+            'ingredientes' => [['nombre' => 'Lomo', 'cantidad' => '1', 'unidad' => 'LIBRA']],
+        ])->assertStatus(422)->assertJsonStructure(['error' => ['detalles' => ['ingredientes.0.unidad']]]);
+    }
+
     public function test_admin_edits_any_station_but_waiter_and_other_station_cannot(): void
     {
         $recipe = ['ingredientes' => [['nombre' => 'Maíz morado', 'cantidad' => '1 kg']], 'procedimiento' => 'Hervir.', 'notas' => null];

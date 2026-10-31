@@ -36,6 +36,8 @@ export function SalonView({ user }: { user: { id: number; esJefe: boolean } }) {
   const isPhone = useMediaQuery("(max-width: 639px)");
 
   const [opening, setOpening] = useState<number | "llevar" | null>(null);
+  // Spec 038: antes de abrir un "para llevar" se elige la mesa a la que pertenece (opcional).
+  const [takeawayOpen, setTakeawayOpen] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<number | "TODOS">("TODOS");
   const [statusFilter, setStatusFilter] = useState<"TODOS" | TableState>("TODOS");
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,6 +80,15 @@ export function SalonView({ user }: { user: { id: number; esJefe: boolean } }) {
     () => (orders.data ?? []).filter((order) => order.tipo === "PARA_LLEVAR" && order.platos > 0),
     [orders.data]
   );
+
+  /** Mesas ocupadas a las que se puede asociar un para llevar (spec 038). */
+  const occupiedTables = useMemo(() => {
+    const map = new Map<number, { id: number; codigo: string; numero: number }>();
+    for (const order of orders.data ?? []) {
+      if (order.tipo === "SALON" && order.mesa) map.set(order.mesa.id, { id: order.mesa.id, codigo: order.mesa.codigo, numero: order.numero });
+    }
+    return [...map.values()].sort((a, b) => a.codigo.localeCompare(b.codigo));
+  }, [orders.data]);
 
   // Mapeo seguro de mesas por salón
   const roomTablesMap = useMemo(() => {
@@ -123,7 +134,7 @@ export function SalonView({ user }: { user: { id: number; esJefe: boolean } }) {
     };
   }, [orders.data, allTables, byTable]);
 
-  async function start(body: { tipo: "SALON" | "PARA_LLEVAR"; mesa_id?: number }, marker: number | "llevar") {
+  async function start(body: { tipo: "SALON" | "PARA_LLEVAR"; mesa_id?: number; mesa_referencia_id?: number }, marker: number | "llevar") {
     if (opening !== null) return;
     setOpening(marker);
     try {
@@ -261,7 +272,7 @@ export function SalonView({ user }: { user: { id: number; esJefe: boolean } }) {
           {/* Botón Acción Rápida: Para Llevar */}
           <Button
             size="lg"
-            onClick={() => void start({ tipo: "PARA_LLEVAR" }, "llevar")}
+            onClick={() => setTakeawayOpen(true)}
             isLoading={opening === "llevar"}
             className="shadow-xs transition-all active:scale-[0.98]"
           >
@@ -365,6 +376,9 @@ export function SalonView({ user }: { user: { id: number; esJefe: boolean } }) {
                       {minutesSince(order.abierto_en, now)} min
                     </span>
                   </div>
+                  <span className={`mt-1 inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-bold ${order.mesa_referencia ? "bg-sky-100 text-azul" : "bg-slate-100 text-slate-500"}`}>
+                    {order.mesa_referencia ? `Mesa ${order.mesa_referencia.codigo}` : "Mostrador"}
+                  </span>
                   <div className="mt-2 flex w-full items-center justify-between">
                     <span className="text-sm font-extrabold text-azul tabular-nums">
                       S/ {order.total}
@@ -767,6 +781,51 @@ export function SalonView({ user }: { user: { id: number; esJefe: boolean } }) {
           );
         })
       )}
+
+      {/* Elección de mesa para un "para llevar" (spec 038) */}
+      {takeawayOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
+          <button type="button" aria-label="Cerrar" onClick={() => setTakeawayOpen(false)} className="fixed inset-0 bg-tinta/60 backdrop-blur-xs" />
+          <section role="dialog" aria-modal="true" aria-labelledby="takeaway-title" className="relative z-10 w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="takeaway-title" className="text-lg font-bold text-tinta">¿Para qué mesa es este para llevar?</h2>
+                <p className="mt-1 text-sm text-slate-500">Se cobrará en la misma boleta de la mesa que elijas. Si es para mostrador, elige “Sin mesa”.</p>
+              </div>
+              <button type="button" onClick={() => setTakeawayOpen(false)} aria-label="Cerrar" className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100">
+                <Icon name="cerrar" className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {occupiedTables.map((table) => (
+                <button
+                  key={table.id}
+                  type="button"
+                  onClick={() => {
+                    setTakeawayOpen(false);
+                    void start({ tipo: "PARA_LLEVAR", mesa_referencia_id: table.id }, "llevar");
+                  }}
+                  className="min-h-[52px] rounded-xl border-2 border-slate-200 px-3 text-left text-sm font-bold text-tinta transition-colors hover:border-azul hover:bg-azul/5"
+                >
+                  Mesa {table.codigo}
+                  <span className="block text-xs font-medium text-slate-400">Pedido #{table.numero}</span>
+                </button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="mt-3 w-full"
+              onClick={() => {
+                setTakeawayOpen(false);
+                void start({ tipo: "PARA_LLEVAR" }, "llevar");
+              }}
+            >
+              Sin mesa (mostrador)
+            </Button>
+          </section>
+        </div>
+      ) : null}
 
       {/* Confirmación de anulación desde el plano (spec 019) */}
       <ConfirmDialog

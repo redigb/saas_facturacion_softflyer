@@ -24,7 +24,7 @@ final class RegisterSale
     public function __construct(private readonly BranchIgvPolicy $igvPolicy) {}
 
     /**
-     * @param  list<array{producto_id: int, descripcion: string, cantidad: string, total: string}>  $lines  `total` ya incluye IGV
+     * @param  list<array{producto_id: int, descripcion: string, cantidad: string, descuento?: string, total: string}>  $lines  `total` ya incluye IGV (y descuentos)
      * @param  list<array{metodo_pago_id: int, monto: string, monto_recibido?: ?string, referencia?: ?string}>  $payments
      */
     public function handle(User $cashier, CashSession $session, int $branchId, array $lines, array $payments): Sale
@@ -82,6 +82,7 @@ final class RegisterSale
                 'tipo_afectacion_igv_id' => $affectations[$index]->id,
                 'cantidad' => $line['cantidad'],
                 'precio_unitario' => Money::format((int) round($cents / ($quantity > 0 ? $quantity : 1))),
+                'descuento' => Money::format(Money::cents($line['descuento'] ?? 0)),
                 'igv' => Money::format($igvByLine[$index]),
                 'total' => Money::format($cents),
             ]);

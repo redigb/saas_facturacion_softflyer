@@ -139,6 +139,27 @@ Requisitos del Doc. 09 §4.2, con un dominio propio para el WebSocket (por ejemp
 - **Más de un servidor de Reverb** (alta disponibilidad o más de 5 000–10 000 conexiones): activar `REVERB_SCALING_ENABLED=true` con Redis.
 - **Antes de abrir a clientes:** prueba de carga con `tests/carga/reverb.k6.js` contra staging.
 
+## Asistente IA (Gemini)
+
+El panel incluye un asistente conversacional (spec 040, `Modules/Assistant`) que responde sobre ventas, comparaciones, productos más vendidos y stock bajo. **Solo lee datos**: no modifica precios, ventas, pedidos ni inventario.
+
+Configura la clave únicamente en el `.env` del backend (nunca en `front-next`, ni en `NEXT_PUBLIC_*`, ni en el repositorio):
+
+```env
+GEMINI_API_KEY=tu-clave
+GEMINI_MODEL=gemini-3.5-flash-lite
+# GEMINI_TIMEOUT=20
+# En Windows con antivirus/proxy que inspecciona TLS (XAMPP no usa el almacén de Windows):
+# GEMINI_CA_BUNDLE=C:/xampp/php/extras/ssl/windows-roots.pem
+```
+
+- El modelo solo elige una de las ocho acciones (ventas, comparación, top de productos, horas punta, rendimiento de meseros, recomendaciones, stock bajo o resumen de inventario); el backend valida argumentos, aplica permisos, filtra por sucursal/almacén y calcula las cifras con SQL parametrizado. La respuesta se redacta en el servidor, sin una segunda llamada al modelo.
+- Para modelos 2.x se usa `generateContent`; para 3.x, `Interactions`. El estilo se elige solo según `GEMINI_MODEL` (`GEMINI_API_STYLE=auto`).
+- Límite: 15 consultas por minuto y 150 por día por usuario/restaurante.
+- Los saludos, despedidas, agradecimientos y preguntas fuera del negocio se responden **sin llamar a Gemini** (0 tokens). Solo las preguntas de negocio consumen API.
+- Si Gemini devuelve crédito de prepago agotado o cuota excedida, la API responde `503 ASISTENTE_SIN_CREDITO` y el chat muestra el aviso para revisar la facturación en AI Studio.
+- No se guardan las preguntas en logs, solo métricas de uso. Antes de usar datos comerciales reales, revisa la política de datos y condiciones de la API de Google; desarrolla primero con datos ficticios.
+
 ## Pruebas
 
 ```powershell

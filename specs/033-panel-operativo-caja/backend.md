@@ -34,7 +34,21 @@ Base `/api/v1`, subdominio del inquilino, `Authorization: Bearer`. Extiende la s
 }
 ```
 
-Los movimientos incorporan `categoria`. Valores operativos: `SALARIOS`, `ABARROTES`, `SERVICIOS`, `INSUMOS`, `MANTENIMIENTO`, `OTROS`, `RETIRO` e `INGRESO`.
+Los movimientos incorporan `categoria` y, desde la spec 038, `metodo_pago_id` (`null` = efectivo). Valores operativos de categoría: `SALARIOS`, `ABARROTES`, `SERVICIOS`, `INSUMOS`, `MANTENIMIENTO`, `OTROS`, `RETIRO` e `INGRESO`.
+
+```json
+{
+  "egresos": "35.00",
+  "egresos_efectivo": "15.00",
+  "egresos_digital": "20.00",
+  "movimientos": [{
+    "id": 8, "tipo": "EGRESO", "monto": "20.00", "concepto": "Pago por Yape",
+    "categoria": "INSUMOS", "metodo_pago_id": 4, "metodo": "Yape", "es_efectivo": false
+  }]
+}
+```
+
+Un gasto con método digital **no** reduce `efectivo_esperado`; solo los egresos con método efectivo (o sin método) lo hacen. Los ingresos y retiros solo admiten efectivo.
 
 ### Errores propios
 

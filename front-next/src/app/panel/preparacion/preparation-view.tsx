@@ -11,6 +11,9 @@ import { Button, EmptyState, Input, ProductAvatar } from "@/components/ui";
 import { ApiRequestError } from "@/lib/browser-api";
 import type { Preparation, PreparationIngredient, PreparationSummary } from "@/lib/schemas/preparacion";
 
+/** Catálogo de unidades de medida (spec 038). */
+const UNITS = ["ONZ", "ML", "GR", "KG"] as const;
+
 export function PreparationView() {
   const stations = useKitchenStations();
   const [station, setStation] = useState<Station | null>(null);
@@ -101,7 +104,7 @@ function PreparationForm({ preparation, station, onClose }: { preparation: Prepa
   const [notes, setNotes] = useState(preparation.notas ?? "");
   const [error, setError] = useState<string | null>(null);
 
-  function updateIngredient(index: number, field: keyof PreparationIngredient, value: string) {
+  function updateIngredient(index: number, field: keyof PreparationIngredient, value: string | null) {
     setIngredients((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item));
     setError(null);
   }
@@ -109,7 +112,7 @@ function PreparationForm({ preparation, station, onClose }: { preparation: Prepa
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     const cleaned = ingredients
-      .map((item) => ({ nombre: item.nombre.trim(), cantidad: item.cantidad?.trim() || null }))
+      .map((item) => ({ nombre: item.nombre.trim(), cantidad: item.cantidad?.trim() || null, unidad: item.unidad ?? null }))
       .filter((item) => item.nombre !== "");
 
     try {
@@ -134,22 +137,31 @@ function PreparationForm({ preparation, station, onClose }: { preparation: Prepa
       <fieldset>
         <div className="flex items-center justify-between gap-3">
           <legend className="text-sm font-bold text-tinta">Ingredientes</legend>
-          <Button variant="secondary" size="sm" onClick={() => setIngredients((current) => [...current, { nombre: "", cantidad: null }])}>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setIngredients((current) => [...current, { nombre: "", cantidad: null, unidad: "GR" }])}>
             <Icon name="mas" className="h-4 w-4" /> Agregar
           </Button>
         </div>
-        <p className="mt-1 text-xs text-slate-500">Puedes escribir cantidades prácticas como “250 g”, “2 cucharadas” o “al gusto”.</p>
+        <p className="mt-1 text-xs text-slate-500">Puedes escribir cantidades prácticas como “250” y elegir la unidad (onza, mililitro, gramo o kilo).</p>
         {ingredients.length === 0 ? (
-          <button type="button" onClick={() => setIngredients([{ nombre: "", cantidad: null }])} className="mt-3 min-h-14 w-full rounded-xl border border-dashed border-slate-300 px-4 text-sm font-semibold text-slate-500 active:bg-slate-50">
+          <button type="button" onClick={() => setIngredients([{ nombre: "", cantidad: null, unidad: "GR" }])} className="mt-3 min-h-14 w-full rounded-xl border border-dashed border-slate-300 px-4 text-sm font-semibold text-slate-500 active:bg-slate-50">
             Agregar el primer ingrediente
           </button>
         ) : (
           <div className="mt-3 space-y-3">
             {ingredients.map((ingredient, index) => (
-              <div key={index} className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.65fr)_44px] gap-2">
+              <div key={index} className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.55fr)_minmax(0,0.55fr)_44px] gap-2">
                 <Input value={ingredient.nombre} onChange={(event) => updateIngredient(index, "nombre", event.target.value)} placeholder="Ingrediente" aria-label={`Ingrediente ${index + 1}`} />
                 <Input value={ingredient.cantidad ?? ""} onChange={(event) => updateIngredient(index, "cantidad", event.target.value)} placeholder="Cantidad" aria-label={`Cantidad del ingrediente ${index + 1}`} />
-                <Button variant="icon" onClick={() => setIngredients((current) => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Quitar ingrediente ${index + 1}`}>
+                <select
+                  value={ingredient.unidad ?? ""}
+                  onChange={(event) => updateIngredient(index, "unidad", event.target.value === "" ? null : event.target.value)}
+                  aria-label={`Unidad del ingrediente ${index + 1}`}
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-base text-tinta focus:border-azul focus:ring-4 focus:ring-azul/10 focus:outline-none"
+                >
+                  <option value="">Unidad</option>
+                  {UNITS.map((unit) => <option key={unit} value={unit}>{unit === "ONZ" ? "ONZ" : unit.toLowerCase()}</option>)}
+                </select>
+                <Button type="button" variant="icon" onClick={() => setIngredients((current) => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Quitar ingrediente ${index + 1}`}>
                   <Icon name="basura" className="h-5 w-5" />
                 </Button>
               </div>

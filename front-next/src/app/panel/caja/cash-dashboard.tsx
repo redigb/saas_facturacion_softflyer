@@ -176,7 +176,8 @@ function PaymentDetails({ methods, total }: { methods: CashSummary["resumen"]["p
 function CashFlow({ session, data }: { session: CashSession; data: CashSummary }) {
   const cashSales = data.resumen.por_metodo.filter((method) => method.codigo === "EFECTIVO").reduce((sum, method) => sum + toCents(method.monto), 0);
   const withdrawals = data.movimientos.filter((movement) => movement.tipo === "EGRESO" && movement.categoria === "RETIRO").reduce((sum, movement) => sum + toCents(movement.monto), 0);
-  const expenses = toCents(data.resumen.egresos) - withdrawals;
+  const expenses = toCents(data.resumen.egresos_efectivo) - withdrawals;
+  const digitalExpenses = toCents(data.resumen.egresos_digital);
   const rows = [
     ["Monto de apertura", toCents(session.monto_apertura), "text-tinta"],
     ["Ventas en efectivo", cashSales, "text-emerald-600"],
@@ -190,6 +191,9 @@ function CashFlow({ session, data }: { session: CashSession; data: CashSummary }
       {rows.map(([label, cents, tone]) => (
         <div key={label} className="flex min-h-10 items-center justify-between text-sm"><span className="text-slate-500">{label}</span><span className={`font-bold tabular-nums ${tone}`}>{cents < 0 ? "−" : cents > 0 && label !== "Monto de apertura" ? "+" : ""} S/ {(Math.abs(cents) / 100).toFixed(2)}</span></div>
       ))}
+      {digitalExpenses > 0 ? (
+        <div className="flex min-h-10 items-center justify-between text-sm"><span className="text-slate-400">Gastos digitales (no afectan el arqueo)</span><span className="font-bold text-slate-400 tabular-nums">S/ {(digitalExpenses / 100).toFixed(2)}</span></div>
+      ) : null}
       <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm font-bold text-tinta"><span>Efectivo esperado</span><PriceText amount={data.resumen.efectivo_esperado} size="sm" /></div>
     </div>
   );
@@ -222,7 +226,7 @@ function OrdersTable({ orders }: { orders: CashSummary["resumen"]["ordenes"] }) 
                 <tr key={order.venta_id} className="text-slate-600 hover:bg-slate-50/70">
                   <td className="px-5 py-3 font-bold text-tinta tabular-nums">#{order.numero ?? order.venta_id}</td>
                   <td className="px-3 py-3"><Badge variant={order.tipo === "SALON" ? "info" : "success"}>{order.tipo === "SALON" ? "Mesa" : "Para llevar"}</Badge></td>
-                  <td className="px-3 py-3">{order.tipo === "SALON" ? order.mesa ?? "Mesa" : order.cliente ?? "Cliente"}</td>
+                  <td className="px-3 py-3">{order.tipo === "SALON" ? order.mesa ?? "Mesa" : order.mesa_referencia ? `${order.mesa_referencia} · Para llevar` : order.cliente ?? "Cliente"}</td>
                   <td className="px-3 py-3 tabular-nums">{order.items}</td>
                   <td className="px-3 py-3">{order.metodos_pago.join(" + ")}</td>
                   <td className="px-3 py-3 font-bold text-tinta"><PriceText amount={order.total} size="sm" /></td>

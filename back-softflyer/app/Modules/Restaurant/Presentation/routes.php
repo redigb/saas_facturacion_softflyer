@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Restaurant\Application\GetDashboardSummary;
+use App\Modules\Restaurant\Presentation\Controllers\AnalyticsController;
 use App\Modules\Restaurant\Presentation\Controllers\CategoryController;
 use App\Modules\Restaurant\Presentation\Controllers\ChargeController;
 use App\Modules\Restaurant\Presentation\Controllers\DiningRoomController;
@@ -12,12 +13,16 @@ use App\Modules\Restaurant\Presentation\Controllers\ModifierGroupController;
 use App\Modules\Restaurant\Presentation\Controllers\OrderController;
 use App\Modules\Restaurant\Presentation\Controllers\PreparationController;
 use App\Modules\Restaurant\Presentation\Controllers\ProductController;
+use App\Modules\Restaurant\Presentation\Controllers\PromotionController;
 use App\Modules\Restaurant\Presentation\Controllers\StationController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['inquilino', 'auth:sanctum', 'cuenta.vigente'])->group(function (): void {
     Route::get('/panel/resumen', fn (GetDashboardSummary $summary) => ['data' => $summary->handle()])
         ->middleware('permiso:panel.ver');
+
+    // Analíticas de ventas (spec 039): solo quien puede ver reportes.
+    Route::get('/analiticas', [AnalyticsController::class, 'index'])->middleware('permiso:reportes.ventas');
 
     // Carta (spec 002). Leer: cualquier usuario del restaurante. Escribir: productos.*
     Route::get('/carta', [MenuController::class, 'show']);
@@ -28,6 +33,9 @@ Route::middleware(['inquilino', 'auth:sanctum', 'cuenta.vigente'])->group(functi
     Route::get('/productos/{product}', [ProductController::class, 'show']);
     Route::get('/estaciones', [StationController::class, 'index']);
     Route::get('/modificador-grupos', [ModifierGroupController::class, 'index']);
+
+    // Promociones de la carta (spec 039). Leer: cualquier usuario del restaurante (igual que la carta).
+    Route::get('/promociones', [PromotionController::class, 'index']);
 
     // Toda escritura exitosa de la carta avisa en tiempo real (spec 005).
     Route::middleware('notifica.carta')->group(function (): void {
@@ -50,6 +58,11 @@ Route::middleware(['inquilino', 'auth:sanctum', 'cuenta.vigente'])->group(functi
         Route::post('/modificador-grupos', [ModifierGroupController::class, 'store'])->middleware('permiso:productos.crear');
         Route::patch('/modificador-grupos/{group}', [ModifierGroupController::class, 'update'])->middleware('permiso:productos.editar');
         Route::delete('/modificador-grupos/{group}', [ModifierGroupController::class, 'destroy'])->middleware('permiso:productos.eliminar');
+
+        // Promociones (spec 039): cada cambio refresca la carta del mozo.
+        Route::post('/promociones', [PromotionController::class, 'store'])->middleware('permiso:productos.crear');
+        Route::patch('/promociones/{promotion}', [PromotionController::class, 'update'])->middleware('permiso:productos.editar');
+        Route::delete('/promociones/{promotion}', [PromotionController::class, 'destroy'])->middleware('permiso:productos.eliminar');
     });
 
     // Salones y plano (spec 003). Leer: cualquier usuario del restaurante. Escribir: restaurante.plano.editar

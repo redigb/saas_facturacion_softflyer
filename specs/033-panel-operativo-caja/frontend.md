@@ -7,7 +7,7 @@ El cajero trabaja durante todo el turno en una PC o tablet táctil; el administr
 ## Flujo
 
 1. Sin turno abierto se conserva “Abre tu caja”.
-2. Con turno se muestra el título, hora de apertura, duración y acciones: Historial, Gasto, Ingresar dinero, Retiro y Cerrar caja.
+2. Con turno se muestra el título, hora de apertura, duración y acciones: Historial, Gasto, Ingresar dinero, Retiro y Cerrar caja. El gasto permite elegir método de pago (efectivo, Yape, Plin, tarjeta o transferencia).
 3. El resumen muestra ventas, ticket promedio, efectivo esperado y última venta.
 4. Las gráficas muestran ventas por hora y distribución por método.
 5. Las cuentas por cobrar conservan el drawer de cobro actual.

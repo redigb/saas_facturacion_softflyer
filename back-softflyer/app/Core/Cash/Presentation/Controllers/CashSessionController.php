@@ -9,7 +9,9 @@ use App\Core\Cash\Infrastructure\Realtime\CashUpdated;
 use App\Shared\Domain\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /** Turnos de caja (spec 009, specs/009-caja-cobro/backend.md). */
 class CashSessionController
@@ -51,6 +53,10 @@ class CashSessionController
         $cashSession->load('register');
         $this->cash->ensureWorksAt($request->user(), $cashSession->register->sucursal_id);
 
+        $methods = DB::table('metodos_pago')
+            ->whereIn('id', $cashSession->movements->pluck('metodo_pago_id')->filter()->unique())
+            ->get()->keyBy('id');
+
         return response()->json(['data' => $this->present($cashSession) + [
             'resumen' => $this->cash->summary($cashSession),
             'movimientos' => $cashSession->movements->map(fn (CashMovement $movement) => [
@@ -59,6 +65,9 @@ class CashSessionController
                 'monto' => $movement->monto,
                 'concepto' => $movement->concepto,
                 'categoria' => $movement->categoria,
+                'metodo_pago_id' => $movement->metodo_pago_id,
+                'metodo' => $movement->metodo_pago_id !== null ? ($methods[$movement->metodo_pago_id]->nombre ?? null) : 'Efectivo',
+                'es_efectivo' => $movement->metodo_pago_id === null || (bool) ($methods[$movement->metodo_pago_id]->es_efectivo ?? true),
                 'creado_en' => $movement->creado_en?->utc()->toIso8601ZuluString(),
             ])->all(),
         ]]);
@@ -71,9 +80,26 @@ class CashSessionController
             'monto' => ['required', 'numeric', 'gt:0', 'max:9999999.99', 'decimal:0,2'],
             'concepto' => ['required', 'string', 'max:120'],
             'categoria' => ['nullable', 'string', Rule::in(['SALARIOS', 'ABARROTES', 'SERVICIOS', 'INSUMOS', 'MANTENIMIENTO', 'OTROS', 'RETIRO', 'INGRESO'])],
+            'metodo_pago_id' => ['nullable', 'integer', Rule::exists('metodos_pago', 'id')->where('es_activo', true)],
         ], ['concepto.required' => 'Escribe el concepto del movimiento.']);
 
-        $movement = $this->cash->addMovement($request->user(), $cashSession, $data['tipo'], (string) $data['monto'], $data['concepto'], $data['categoria'] ?? null);
+        // Spec 038: solo un gasto puede pagarse con Yape, Plin u otro método digital.
+        if (($data['metodo_pago_id'] ?? null) !== null && $data['tipo'] !== CashMovement::EXPENSE) {
+            $cash = DB::table('metodos_pago')->where('id', $data['metodo_pago_id'])->value('es_efectivo');
+            if (! $cash) {
+                throw ValidationException::withMessages(['metodo_pago_id' => ['Solo los gastos pueden usar un método digital.']]);
+            }
+        }
+
+        $movement = $this->cash->addMovement(
+            $request->user(),
+            $cashSession,
+            $data['tipo'],
+            (string) $data['monto'],
+            $data['concepto'],
+            $data['categoria'] ?? null,
+            $data['metodo_pago_id'] ?? null,
+        );
         $this->notify($cashSession->load('register'), $request);
 
         return response()->json(['data' => [
@@ -82,6 +108,7 @@ class CashSessionController
             'monto' => $movement->monto,
             'concepto' => $movement->concepto,
             'categoria' => $movement->categoria,
+            'metodo_pago_id' => $movement->metodo_pago_id,
             'efectivo_esperado' => Money::format($this->cash->expectedCash($cashSession)),
         ]], 201);
     }

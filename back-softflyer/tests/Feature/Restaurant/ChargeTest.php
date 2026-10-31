@@ -162,6 +162,66 @@ class ChargeTest extends DatabaseTestCase
             ->assertStatus(409)->assertJsonPath('error.codigo', 'PEDIDO_NO_COBRABLE');
     }
 
+    public function test_takeaway_of_a_table_is_charged_in_the_same_receipt(): void
+    {
+        $this->openCash(0);
+        // Mesa: pan 6.00 · Para llevar de la misma mesa: chicha 10.00
+        $table = $this->billedOrder($this->ids['m1'], [['producto_id' => $this->ids['pan'], 'cantidad' => 1]]);
+        $takeaway = $this->as($this->waiter, 'POST', 'pedidos', [
+            'tipo' => 'PARA_LLEVAR',
+            'mesa_referencia_id' => $this->ids['m1'],
+        ], idempotent: true)->assertCreated()->json('data.id');
+        $this->send($takeaway, [['producto_id' => $this->ids['chicha'], 'cantidad' => 1]])->assertCreated();
+
+        // El para llevar no se cobra por separado: viaja con la cuenta de la mesa.
+        $this->as($this->cashier, 'GET', 'pedidos/por-cobrar')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $table);
+
+        $detail = $this->as($this->cashier, 'GET', "pedidos/{$table}")->assertOk()->assertJsonCount(1, 'data.acompanantes');
+        $tableItems = array_column($detail->json('data.detalles'), 'id');
+        $takeawayItems = array_column($detail->json('data.acompanantes.0.detalles'), 'id');
+
+        $this->as($this->cashier, 'POST', "pedidos/{$table}/cobro", [
+            'detalle_ids' => [...$tableItems, ...$takeawayItems],
+            'pedidos_adicionales' => [$takeaway],
+            'pagos' => [['metodo_pago_id' => $this->methods['EFECTIVO'], 'monto' => 16]],
+        ], idempotent: true)
+            ->assertCreated()
+            ->assertJsonPath('data.venta.total', '16.00')
+            ->assertJsonPath('data.pedido.estado', 'CERRADO')
+            ->assertJsonCount(2, 'data.pedidos');
+
+        $this->assertSame(1, DB::table('ventas')->count());
+        $this->assertSame(1, DB::table('comprobantes')->count());
+        $this->assertSame(2, DB::table('venta_detalle_pedido')->count());
+        $this->assertSame('CERRADO', $this->asTenant(fn () => DB::table('pedidos')->where('id', $takeaway)->value('estado')));
+        $this->as($this->waiter, 'GET', "salones/{$this->ids['salon']}/plano")->assertJsonPath('data.mesas.0.estado', 'LIBRE');
+
+        // El resumen de caja muestra una sola orden con la mesa.
+        $session = $this->as($this->cashier, 'GET', 'sesiones-caja/actual')->json('data.id');
+        $this->as($this->cashier, 'GET', "sesiones-caja/{$session}/resumen")
+            ->assertJsonCount(1, 'data.resumen.ordenes')
+            ->assertJsonPath('data.resumen.ordenes.0.mesa', 'M1')
+            ->assertJsonPath('data.resumen.ordenes.0.total', '16.00');
+    }
+
+    public function test_a_takeaway_of_another_table_cannot_join_the_bill(): void
+    {
+        $this->openCash(0);
+        $table = $this->billedOrder($this->ids['m2'], [['producto_id' => $this->ids['pan'], 'cantidad' => 1]]);
+        $takeaway = $this->as($this->waiter, 'POST', 'pedidos', [
+            'tipo' => 'PARA_LLEVAR',
+            'mesa_referencia_id' => $this->ids['m1'],
+        ], idempotent: true)->assertCreated()->json('data.id');
+        $this->send($takeaway, [['producto_id' => $this->ids['chicha'], 'cantidad' => 1]])->assertCreated();
+
+        $this->as($this->cashier, 'POST', "pedidos/{$table}/cobro", [
+            'pedidos_adicionales' => [$takeaway],
+            'pagos' => [['metodo_pago_id' => $this->methods['EFECTIVO'], 'monto' => 6]],
+        ], idempotent: true)->assertStatus(422)->assertJsonPath('error.codigo', 'COBRO_GRUPO_INVALIDO');
+
+        $this->assertSame(0, DB::table('ventas')->count());
+    }
+
     public function test_closing_computes_the_expected_cash_and_records_the_difference(): void
     {
         $session = $this->openCash(100)->json('data.id');

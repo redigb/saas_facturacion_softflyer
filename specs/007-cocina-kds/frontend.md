@@ -11,7 +11,7 @@ Sigue el skill `front-next/.agents/skills/softflyer-ui` y la biblioteca `@/compo
 
 **Cocina** (`/panel/cocina`):
 1. Primera vez: elige su estación (Cocina, Bar… o General); queda recordada en ese dispositivo.
-2. Tablero de tarjetas, la comanda más antigua a la izquierda/arriba. Cada tarjeta: mesa o "para llevar", #pedido, mozo, minutos (ámbar > 10, rojo > 20) y sus platos.
+2. Tablero de tarjetas, la comanda más antigua a la izquierda/arriba. Cada tarjeta: mesa o "para llevar", #pedido, mozo, minutos (ámbar desde 10, **rojo desde 15** —spec 038—) y sus platos.
 3. Toque en un plato: en cola → preparando → listo. Botón grande **Todo listo** en la tarjeta.
 4. Comanda completa → pasa a la franja "Recién listos" (10 min) con **Deshacer**.
 5. Comanda nueva: entra resaltada unos segundos y suena un aviso (si el cocinero activó el sonido).

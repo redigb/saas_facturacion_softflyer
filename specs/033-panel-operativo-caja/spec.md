@@ -18,6 +18,7 @@ La pantalla conserva las cuentas por cobrar y convierte el resto del turno en un
 - [x] La lista de órdenes cobradas muestra pedido, tipo, mesa o cliente, cantidad de ítems, métodos de pago, total, cobrador y hora.
 - [x] El cajero conserva las cuentas por cobrar y puede abrir el flujo de cobro existente.
 - [x] Gasto, ingreso y retiro son acciones separadas, con concepto y categoría auditables.
+- [x] Un gasto puede pagarse con Yape, Plin u otro método digital sin descontar el efectivo del arqueo (spec 038).
 - [x] El detalle de pagos, gastos y flujo de efectivo se actualiza tras cobrar o registrar un movimiento.
 - [x] Se puede consultar el historial reciente de turnos permitidos al usuario.
 - [x] La pantalla usa desplazamiento vertical y se adapta sin perder acciones en celular.

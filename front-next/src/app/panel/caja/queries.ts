@@ -83,7 +83,7 @@ export function useCashMovement(sessionId: number) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: { tipo: "INGRESO" | "EGRESO"; monto: string; concepto: string; categoria: string }) =>
+    mutationFn: (body: { tipo: "INGRESO" | "EGRESO"; monto: string; concepto: string; categoria: string; metodo_pago_id?: number }) =>
       apiRequest(`sesiones-caja/${sessionId}/movimientos`, dataOf(movementSchema), { method: "POST", body }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: cashKeys.summary(sessionId) }),
   });
@@ -104,6 +104,7 @@ export function useCloseCash(sessionId: number) {
 
 type ChargeBody = {
   detalle_ids?: number[];
+  pedidos_adicionales?: number[];
   version?: number;
   cliente?: { tipo_documento: "DNI" | "RUC"; numero: string; nombre?: string };
   pagos: { metodo_pago_id: number; monto: string; monto_recibido?: string; referencia?: string }[];
@@ -125,6 +126,9 @@ export function useChargeOrder(orderId: number, sessionId: number) {
       }
       void queryClient.invalidateQueries({ queryKey: cashKeys.billable });
       void queryClient.invalidateQueries({ queryKey: ["pedidos", orderId] });
+      for (const affected of data.pedidos) {
+        void queryClient.invalidateQueries({ queryKey: ["pedidos", affected.id] });
+      }
       void queryClient.invalidateQueries({ queryKey: cashKeys.summary(sessionId) });
       void queryClient.invalidateQueries({ queryKey: cashKeys.receipts(sessionId) });
       void queryClient.invalidateQueries({ queryKey: ["pedidos"], exact: true });

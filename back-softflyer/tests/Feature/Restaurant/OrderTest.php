@@ -96,6 +96,28 @@ class OrderTest extends DatabaseTestCase
             ->assertStatus(422);
     }
 
+    public function test_take_away_order_can_reference_a_table_without_occupying_it(): void
+    {
+        $this->as($this->waiter, 'POST', 'pedidos', [
+            'tipo' => 'PARA_LLEVAR',
+            'mesa_referencia_id' => $this->ids['m1'],
+        ], idempotent: true)
+            ->assertCreated()
+            ->assertJsonPath('data.mesa', null)
+            ->assertJsonPath('data.mesa_referencia.codigo', 'M1');
+
+        // La mesa sigue libre: el para llevar no abre un pedido de salón.
+        $this->as($this->waiter, 'GET', "salones/{$this->ids['salon']}/plano")
+            ->assertJsonPath('data.mesas.0.estado', 'LIBRE');
+
+        // Un pedido de salón no lleva mesa de referencia.
+        $this->as($this->waiter, 'POST', 'pedidos', [
+            'tipo' => 'SALON',
+            'mesa_id' => $this->ids['m1'],
+            'mesa_referencia_id' => $this->ids['m2'],
+        ], idempotent: true)->assertStatus(422);
+    }
+
     public function test_sending_creates_one_ticket_per_station_with_frozen_prices(): void
     {
         Event::fake([TicketSent::class, OrderUpdated::class]);

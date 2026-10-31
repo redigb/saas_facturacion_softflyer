@@ -75,6 +75,9 @@ Para crear una nueva, copia [`_plantilla/`](_plantilla/) con el siguiente númer
 | [035-restablecer-contrasena](035-restablecer-contrasena/spec.md) | — (soporte y seguridad) | ✅ | ✅ | Cerrada |
 | [036-activacion-y-correos-en-cola](036-activacion-y-correos-en-cola/spec.md) | — (soporte y seguridad) | ✅ | ✅ | Cerrada |
 | [037-facturacion-usable](037-facturacion-usable/spec.md) | H3 (facturación) | ✅ | ✅ | Lista para probar |
+| [038-ajustes-caja-kds-preparacion](038-ajustes-caja-kds-preparacion/spec.md) | Operación diaria (ajustes) | ✅ | ✅ | Lista para probar |
+| [039-promociones-y-analiticas](039-promociones-y-analiticas/spec.md) | Crecimiento (precios y reportes) | ✅ | ✅ | Lista para probar |
+| [040-asistente-ia](040-asistente-ia/spec.md) | Producto (asistente IA) | ✅ | ✅ | Lista para probar |
 
 ## Hoja de ruta: configuración general y preview
 
